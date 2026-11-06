@@ -121,12 +121,14 @@ resource "aws_cloudfront_distribution" "site" {
   is_ipv6_enabled     = true
   http_version        = "http2and3"
 
+  # Marketing site: the private website bucket.
   origin {
     origin_id                = "s3-website-origin"
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
   }
 
+  # Everything not matched below is the marketing site.
   default_cache_behavior {
     target_origin_id           = "s3-website-origin"
     viewer_protocol_policy     = "redirect-to-https"
@@ -176,6 +178,7 @@ resource "aws_cloudfront_distribution" "site" {
     response_headers_policy_id = aws_cloudfront_response_headers_policy.portal.id
   }
 
+  # The portal app: cached static files, app routes rewritten to its shell.
   ordered_cache_behavior {
     path_pattern               = "/1NEON*"
     target_origin_id           = "s3-1neon-app"
