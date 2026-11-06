@@ -278,7 +278,7 @@ resource "aws_cloudfront_function" "portal_router" {
 }
 
 
-# Strict headers for the portal: same-origin scripts and connections only
+# Strict headers for the portal: same-origin scripts, and connections only to itself and its documents bucket
 resource "aws_cloudfront_response_headers_policy" "portal" {
   name    = "neon1-1neon-headers"
   comment = "1NEON portal security headers"
@@ -292,7 +292,8 @@ resource "aws_cloudfront_response_headers_policy" "portal" {
         "style-src 'self'",
         "img-src 'self' data:",
         "font-src 'self'",
-        "connect-src 'self'",
+        # Uploads go from the browser straight to the documents bucket with presigned links
+        "connect-src 'self' https://neon1-1neon-docs-prod.s3.us-east-1.amazonaws.com",
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",
