@@ -54,8 +54,8 @@ variable "zone_id" {
 }
 
 
-# The 1NEON portal: its OIDC subject and app bucket. 1NEON was created with GitHub's immutable OIDC subjects, so its tokens name the
-# owner and repository by ID as well as by name
+# The 1NEON portal: its OIDC subject and app bucket. 1NEON uses GitHub's immutable
+# subjects, so its tokens name the owner and repository by ID as well as by name
 variable "portal_subject" {
   description = "OIDC subject prefix for the 1NEON repository, without the repo: and :ref parts."
   type        = string
