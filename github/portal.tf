@@ -144,10 +144,13 @@ data "aws_iam_policy_document" "portal_terraform" {
       "ses:List*",
       "logs:DescribeLogGroups",
       "ssm:DescribeParameters",
-      "acm:ListCertificates",
-      "acm:DescribeCertificate",
-      "cloudfront:GetDistribution",
-      "cloudwatch:DescribeAlarms",
+      "acm:Describe*",
+      "acm:Get*",
+      "acm:List*",
+      "cloudfront:Get*",
+      "cloudfront:List*",
+      "cloudwatch:Describe*",
+      "cloudwatch:List*",
     ]
     resources = ["*"]
   }
