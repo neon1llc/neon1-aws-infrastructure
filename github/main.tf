@@ -172,6 +172,7 @@ data "aws_iam_policy_document" "terraform" {
       "cloudfront:UpdateOriginAccessControl",
       "cloudfront:DeleteOriginAccessControl",
       "cloudfront:CreateFunction",
+      "cloudfront:DescribeFunction",
       "cloudfront:UpdateFunction",
       "cloudfront:PublishFunction",
       "cloudfront:DeleteFunction",
