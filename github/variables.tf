@@ -40,3 +40,15 @@ variable "zone_id" {
   type        = string
   default     = "Z009089523ACQHD83TGQI"
 }
+
+variable "portal_repo" {
+  description = "Repository for the 1NEON portal (app and its own Terraform)."
+  type        = string
+  default     = "1NEON"
+}
+
+variable "portal_app_bucket" {
+  description = "1NEON SPA bucket (created by the 1NEON stack)."
+  type        = string
+  default     = "neon1-1neon-app-prod"
+}
