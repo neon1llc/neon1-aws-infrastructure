@@ -1,7 +1,10 @@
-# GitHub Actions access to AWS through OIDC: no stored keys, and each role
+# github/main.tf - GitHub Actions access to AWS through OIDC: no stored keys, and each role
 # trusts only one repository's main branch.
 
+
+# The account ID for ARNs, and the repository each role trusts
 data "aws_caller_identity" "current" {}
+
 
 locals {
   account   = data.aws_caller_identity.current.account_id
@@ -18,14 +21,16 @@ locals {
   state_arn       = "arn:aws:s3:::${var.state_bucket}"
 }
 
-# One provider per account. AWS checks GitHub's certificate itself, so no thumbprint.
+
+# One provider per account. AWS checks GitHub's certificate itself, so no thumbprint
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://${local.oidc_host}"
   client_id_list = ["sts.amazonaws.com"]
 }
 
+
 # Pushes to main only. Pull requests, other branches and environments get a
-# different subject claim and can't assume either role.
+# different subject claim and can't assume either role
 data "aws_iam_policy_document" "trust" {
   for_each = local.repos
 
@@ -54,12 +59,15 @@ data "aws_iam_policy_document" "trust" {
 
 # --- Site deploy: sync the bucket and invalidate the distribution, nothing else ---
 
+
 resource "aws_iam_role" "site_deploy" {
   name               = "github-neon1-site-deploy"
   description        = "GitHub Actions deploys for ${local.repos.site_deploy}"
   assume_role_policy = data.aws_iam_policy_document.trust["site_deploy"].json
 }
 
+
+# List and write the site bucket, and invalidate the distribution
 data "aws_iam_policy_document" "site_deploy" {
   statement {
     sid       = "ListSite"
@@ -80,6 +88,8 @@ data "aws_iam_policy_document" "site_deploy" {
   }
 }
 
+
+# Attach the deploy policy to the site deploy role
 resource "aws_iam_role_policy" "site_deploy" {
   name   = "deploy"
   role   = aws_iam_role.site_deploy.id
@@ -89,14 +99,17 @@ resource "aws_iam_role_policy" "site_deploy" {
 
 # --- Terraform: apply the site stack, plan this one ---
 
+
 # This stack is applied by hand. The role can read IAM but not change it, so a
-# compromised workflow can't widen its own access.
+# compromised workflow can't widen its own access
 resource "aws_iam_role" "terraform" {
   name               = "github-neon1-infra-terraform"
   description        = "GitHub Actions Terraform runs for ${local.repos.terraform}"
   assume_role_policy = data.aws_iam_policy_document.trust["terraform"].json
 }
 
+
+# What the site stack manages, plus read access to plan this one
 data "aws_iam_policy_document" "terraform" {
   # State and lock files: read and write for site, read and lock only for github
   statement {
@@ -123,7 +136,7 @@ data "aws_iam_policy_document" "terraform" {
     resources = ["${local.state_arn}/github/*.tflock"]
   }
 
-  # Bucket settings only. Objects belong to the site deploy role.
+  # Bucket settings only. Objects belong to the site deploy role
   statement {
     sid = "SiteBucket"
     actions = [
@@ -149,6 +162,7 @@ data "aws_iam_policy_document" "terraform" {
   }
 
   statement {
+    # Distributions, origin access, edge functions, and header policies in this account
     sid = "CloudFrontWrite"
     actions = [
       "cloudfront:CreateDistribution",
@@ -183,6 +197,7 @@ data "aws_iam_policy_document" "terraform" {
   }
 
   statement {
+    # Certificates: requesting can't be scoped, managing is limited to this account
     sid       = "CertificateRequest"
     actions   = ["acm:RequestCertificate", "acm:ListCertificates"]
     resources = ["*"]
@@ -202,13 +217,14 @@ data "aws_iam_policy_document" "terraform" {
   }
 
   statement {
+    # Read the hosted zone and follow record changes
     sid       = "ZoneRead"
     actions   = ["route53:GetHostedZone", "route53:ListResourceRecordSets", "route53:ListTagsForResource"]
     resources = ["arn:aws:route53:::hostedzone/${var.zone_id}"]
   }
 
   # Site aliases and certificate validation only. Mail records stay out of
-  # reach until a stack manages them.
+  # reach until a stack manages them
   statement {
     sid       = "ZoneRecords"
     actions   = ["route53:ChangeResourceRecordSets"]
@@ -245,6 +261,8 @@ data "aws_iam_policy_document" "terraform" {
   }
 }
 
+
+# Attach the Terraform policy to the infrastructure role
 resource "aws_iam_role_policy" "terraform" {
   name   = "terraform"
   role   = aws_iam_role.terraform.id
