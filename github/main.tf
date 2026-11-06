@@ -13,8 +13,8 @@ locals {
   repos = {
     site_deploy      = "${var.github_org}/${var.site_repo}"
     terraform        = "${var.github_org}/${var.infra_repo}"
-    portal_deploy    = "${var.github_org}/${var.portal_repo}"
-    portal_terraform = "${var.github_org}/${var.portal_repo}"
+    portal_deploy    = var.portal_subject
+    portal_terraform = var.portal_subject
   }
 
   site_bucket_arn = "arn:aws:s3:::${var.site_bucket}"
