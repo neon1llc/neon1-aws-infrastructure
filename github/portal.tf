@@ -87,7 +87,7 @@ data "aws_iam_policy_document" "portal_terraform" {
   # The app and documents buckets (neon1-1neon-*)
   statement {
     sid       = "Buckets"
-    actions   = ["s3:*"]
+    actions   = ["s3:CreateBucket", "s3:Get*", "s3:List*", "s3:Put*", "s3:Delete*"]
     resources = ["arn:aws:s3:::neon1-1neon-*"]
   }
 
