@@ -1,14 +1,23 @@
+# .gitignore - Terraform working files, state, secrets, and saved plans never enter the repo.
+
+
+# Provider caches and state; the lock file is the one Terraform file that belongs in Git
 **/.terraform/
 *.tfstate
 *.tfstate.*
+!.terraform.lock.hcl
+
+# Crash logs and local variable files, which can hold secrets
 crash.log
 crash.*.log
 *.tfvars
 *.tfvars.json
+
+# Personal CLI configuration
 .terraformrc
 terraform.rc
-!.terraform.lock.hcl
 
+# OS clutter
 .DS_Store
 
 # Saved plans hold resolved values; never commit them

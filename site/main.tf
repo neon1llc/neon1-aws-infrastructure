@@ -1,10 +1,12 @@
-# neon1.tech static site: private S3 origin -> CloudFront (OAC) -> Route 53 aliases.
+# site/main.tf - The neon1.tech static site: private S3 origin -> CloudFront (OAC) -> Route 53 aliases.
 # The hosted zone is owned outside this stack; mail/DKIM records are managed separately.
 
+
+# The www host and the AWS managed policy IDs the behaviors use
 locals {
   www = "www.${var.domain}"
 
-  # AWS managed policies (stable IDs).
+  # AWS managed policies (stable IDs)
   caching_optimized_policy = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   security_headers_policy  = "67f7725c-6f97-4210-82d7-5512b31e9d03"
   caching_disabled_policy  = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
@@ -12,19 +14,24 @@ locals {
   all_viewer_except_host_policy = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
 }
 
+
 # --- Origin bucket: private, owner-enforced, versioned so a bad deploy can roll back ---
+
 
 resource "aws_s3_bucket" "site" {
   bucket = var.bucket_name
 
-  # Content outlives infrastructure changes; never delete objects implicitly.
+  # Content outlives infrastructure changes; never delete objects implicitly
   force_destroy = false
 }
 
+
+# No ACLs and no public access, ever
 resource "aws_s3_bucket_ownership_controls" "site" {
   bucket = aws_s3_bucket.site.id
   rule { object_ownership = "BucketOwnerEnforced" }
 }
+
 
 resource "aws_s3_bucket_public_access_block" "site" {
   bucket                  = aws_s3_bucket.site.id
@@ -34,12 +41,15 @@ resource "aws_s3_bucket_public_access_block" "site" {
   restrict_public_buckets = true
 }
 
+
+# Versions let a bad deploy roll back
 resource "aws_s3_bucket_versioning" "site" {
   bucket = aws_s3_bucket.site.id
   versioning_configuration { status = "Enabled" }
 }
 
-# Keep rollback history bounded so old versions don't accrue cost.
+
+# Keep rollback history bounded so old versions don't accrue cost
 resource "aws_s3_bucket_lifecycle_configuration" "site" {
   bucket = aws_s3_bucket.site.id
 
@@ -57,7 +67,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "site" {
   depends_on = [aws_s3_bucket_versioning.site]
 }
 
-# Only this distribution may read objects.
+
+# Only this distribution may read objects
 resource "aws_s3_bucket_policy" "site" {
   bucket = aws_s3_bucket.site.id
   policy = jsonencode({
@@ -73,7 +84,9 @@ resource "aws_s3_bucket_policy" "site" {
   })
 }
 
+
 # --- TLS: apex + wildcard so any future subdomain (www, portal, dev...) is covered ---
+
 
 resource "aws_acm_certificate" "site" {
   domain_name               = var.domain
@@ -83,7 +96,8 @@ resource "aws_acm_certificate" "site" {
   lifecycle { create_before_destroy = true }
 }
 
-# Apex and wildcard share one validation record; dedupe by name.
+
+# Apex and wildcard share one validation record; dedupe by name
 resource "aws_route53_record" "cert_validation" {
   for_each = {
     for o in aws_acm_certificate.site.domain_validation_options : o.resource_record_name => o...
@@ -97,13 +111,18 @@ resource "aws_route53_record" "cert_validation" {
   allow_overwrite = true
 }
 
+
+# Wait for ACM to issue before the distribution uses the certificate
 resource "aws_acm_certificate_validation" "site" {
   certificate_arn         = aws_acm_certificate.site.arn
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
 }
 
+
 # --- CDN ---
 
+
+# CloudFront signs every origin request, so the buckets stay private
 resource "aws_cloudfront_origin_access_control" "site" {
   name                              = "neon1-website-oac"
   description                       = "Allows CloudFront to sign requests to the private S3 origin using SigV4."
@@ -112,6 +131,8 @@ resource "aws_cloudfront_origin_access_control" "site" {
   signing_protocol                  = "sigv4"
 }
 
+
+# One distribution for the site and the portal, HTTP/2 and HTTP/3, IPv4 and IPv6
 resource "aws_cloudfront_distribution" "site" {
   enabled             = true
   comment             = "neon1 website distribution — S3 private origin behind CloudFront"
@@ -121,14 +142,15 @@ resource "aws_cloudfront_distribution" "site" {
   is_ipv6_enabled     = true
   http_version        = "http2and3"
 
-  # Marketing site: the private website bucket.
+  # Marketing site: the private website bucket
+  # The portal's app bucket, reached through the same origin access control
   origin {
     origin_id                = "s3-website-origin"
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
   }
 
-  # Everything not matched below is the marketing site.
+  # Everything not matched below is the marketing site
   default_cache_behavior {
     target_origin_id           = "s3-website-origin"
     viewer_protocol_policy     = "redirect-to-https"
@@ -138,7 +160,7 @@ resource "aws_cloudfront_distribution" "site" {
     cache_policy_id            = local.caching_optimized_policy
     response_headers_policy_id = local.security_headers_policy
 
-    # Unknown page paths render the site; missing files stay real errors.
+    # Unknown page paths render the site; missing files stay real errors
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.site_router.arn
@@ -147,6 +169,7 @@ resource "aws_cloudfront_distribution" "site" {
 
   # --- 1NEON portal at /1NEON (resources owned by the neon1llc/1NEON repo) ---
 
+  # The portal's HTTP API, over HTTPS only
   origin {
     origin_id                = "s3-1neon-app"
     domain_name              = data.aws_ssm_parameter.portal["app_bucket_domain"].value
@@ -165,7 +188,7 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
-  # API first: never cached, every method, cookies and query strings forwarded.
+  # API first: never cached, every method, cookies and query strings forwarded
   ordered_cache_behavior {
     path_pattern               = "/1NEON/api/*"
     target_origin_id           = "1neon-api"
@@ -178,7 +201,7 @@ resource "aws_cloudfront_distribution" "site" {
     response_headers_policy_id = aws_cloudfront_response_headers_policy.portal.id
   }
 
-  # The portal app: cached static files, app routes rewritten to its shell.
+  # The portal app: cached static files, app routes rewritten to its shell
   ordered_cache_behavior {
     path_pattern               = "/1NEON*"
     target_origin_id           = "s3-1neon-app"
@@ -195,6 +218,7 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
+  # No geographic limits; TLS 1.2 or later with the validated certificate
   restrictions {
     geo_restriction { restriction_type = "none" }
   }
@@ -206,7 +230,9 @@ resource "aws_cloudfront_distribution" "site" {
   }
 }
 
+
 # --- DNS: apex and www alias straight to the CDN (A + AAAA) ---
+
 
 resource "aws_route53_record" "alias" {
   for_each = {
@@ -217,7 +243,7 @@ resource "aws_route53_record" "alias" {
   name    = each.value[0]
   type    = each.value[1]
 
-  # Take over the hand-made records in place (UPSERT) rather than failing on conflict.
+  # Take over the hand-made records in place (UPSERT) rather than failing on conflict
   allow_overwrite = true
 
   alias {
@@ -227,9 +253,11 @@ resource "aws_route53_record" "alias" {
   }
 }
 
+
 # --- Edge functions: page routing without distribution-wide error pages ---
 # The old 403/404 -> /index.html rule applied to every path, which would have turned
-# portal API errors into the marketing page. Routing now happens per behavior.
+# portal API errors into the marketing page. Routing now happens per behavior
+
 
 resource "aws_cloudfront_function" "site_router" {
   name    = "neon1-site-router"
@@ -239,6 +267,8 @@ resource "aws_cloudfront_function" "site_router" {
   code    = file("${path.module}/functions/site-router.js")
 }
 
+
+# /1NEON redirects to /1NEON/; app routes get the portal's shell
 resource "aws_cloudfront_function" "portal_router" {
   name    = "neon1-1neon-router"
   runtime = "cloudfront-js-2.0"
@@ -247,11 +277,13 @@ resource "aws_cloudfront_function" "portal_router" {
   code    = file("${path.module}/functions/portal-router.js")
 }
 
-# Strict headers for the portal: same-origin scripts and connections only.
+
+# Strict headers for the portal: same-origin scripts and connections only
 resource "aws_cloudfront_response_headers_policy" "portal" {
   name    = "neon1-1neon-headers"
   comment = "1NEON portal security headers"
 
+  # CSP, HSTS for two years, no sniffing, no framing, and a strict referrer
   security_headers_config {
     content_security_policy {
       content_security_policy = join("; ", [
@@ -285,6 +317,7 @@ resource "aws_cloudfront_response_headers_policy" "portal" {
     }
   }
 
+  # No camera, microphone, location, or payment access
   custom_headers_config {
     items {
       header   = "Permissions-Policy"
@@ -294,7 +327,8 @@ resource "aws_cloudfront_response_headers_policy" "portal" {
   }
 }
 
-# Published by the 1NEON repo's Terraform (infra/envs/prod). Apply that stack first.
+
+# Published by the 1NEON repo's Terraform (infra/envs/prod). Apply that stack first
 data "aws_ssm_parameter" "portal" {
   for_each = toset(["app_bucket_domain", "api_domain"])
   name     = "/1neon/prod/${each.key}"

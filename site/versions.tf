@@ -1,4 +1,7 @@
-# Remote state lives in the neon1-tfstate bucket (versioned); S3-native locking.
+# site/versions.tf - Terraform and provider versions, remote state, and the AWS provider.
+
+
+# Remote state lives in the neon1-tfstate bucket (versioned); S3-native locking
 terraform {
   required_version = ">= 1.10"
 
@@ -18,8 +21,9 @@ terraform {
   }
 }
 
+
 # Credentials come from AWS_PROFILE / the environment, never hardcoded.
-# CloudFront certificates must live in us-east-1, so one region covers everything.
+# CloudFront certificates must live in us-east-1, so one region covers everything
 provider "aws" {
   region = "us-east-1"
 
