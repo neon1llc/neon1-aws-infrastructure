@@ -8,8 +8,10 @@ locals {
   oidc_host = "token.actions.githubusercontent.com"
 
   repos = {
-    site_deploy = "${var.github_org}/${var.site_repo}"
-    terraform   = "${var.github_org}/${var.infra_repo}"
+    site_deploy      = "${var.github_org}/${var.site_repo}"
+    terraform        = "${var.github_org}/${var.infra_repo}"
+    portal_deploy    = "${var.github_org}/${var.portal_repo}"
+    portal_terraform = "${var.github_org}/${var.portal_repo}"
   }
 
   site_bucket_arn = "arn:aws:s3:::${var.site_bucket}"
@@ -155,13 +157,29 @@ data "aws_iam_policy_document" "terraform" {
       "cloudfront:CreateOriginAccessControl",
       "cloudfront:UpdateOriginAccessControl",
       "cloudfront:DeleteOriginAccessControl",
+      "cloudfront:CreateFunction",
+      "cloudfront:UpdateFunction",
+      "cloudfront:PublishFunction",
+      "cloudfront:DeleteFunction",
+      "cloudfront:CreateResponseHeadersPolicy",
+      "cloudfront:UpdateResponseHeadersPolicy",
+      "cloudfront:DeleteResponseHeadersPolicy",
       "cloudfront:TagResource",
       "cloudfront:UntagResource",
     ]
     resources = [
       "arn:aws:cloudfront::${local.account}:distribution/*",
       "arn:aws:cloudfront::${local.account}:origin-access-control/*",
+      "arn:aws:cloudfront::${local.account}:function/*",
+      "arn:aws:cloudfront::${local.account}:response-headers-policy/*",
     ]
+  }
+
+  # The 1NEON stack publishes its origin domains here for the edge to read
+  statement {
+    sid       = "PortalParameters"
+    actions   = ["ssm:GetParameter", "ssm:GetParameters"]
+    resources = ["arn:aws:ssm:us-east-1:${local.account}:parameter/1neon/prod/*"]
   }
 
   statement {
@@ -222,6 +240,7 @@ data "aws_iam_policy_document" "terraform" {
     resources = [
       aws_iam_openid_connect_provider.github.arn,
       "arn:aws:iam::${local.account}:role/github-neon1-*",
+      "arn:aws:iam::${local.account}:role/github-1neon-*",
     ]
   }
 }
