@@ -1,0 +1,7 @@
+# A WAF costs more each month than the site's whole hosting bill. The site is
+# static and read-only, and CloudFront Shield Standard covers volumetric attacks.
+AWS-0011
+
+# SSE-S3 is enough for public web content. A customer managed key adds cost and
+# a key policy CloudFront must be granted, with nothing private to protect.
+AWS-0132

@@ -10,3 +10,6 @@ terraform.rc
 !.terraform.lock.hcl
 
 .DS_Store
+
+# Saved plans hold resolved values; never commit them
+tfplan
