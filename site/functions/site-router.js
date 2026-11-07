@@ -7,8 +7,8 @@ var NOT_FOUND = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '<meta name="viewport" content="width=device-width, initial-scale=1">' +
   '<title>neon1 · not found</title><meta name="robots" content="noindex">' +
   '<link rel="stylesheet" href="/shared/neon1.css"><link rel="stylesheet" href="/shared/not-found.css">' +
-  '</head><body><canvas id="rain" aria-hidden="true"></canvas>' +
-  '<main class="nf"><h1 class="glitch" data-text="404">404</h1>' +
+  '</head><body><canvas id="rain" aria-hidden="true"></canvas><canvas id="lens" aria-hidden="true"></canvas>' +
+  '<main class="nf glass glass-pane"><h1 class="glitch" data-text="404">404</h1>' +
   '<p>There\'s nothing at this address.</p><a href="/">Back to neon1.tech</a></main>' +
   '<script type="module" src="/shared/not-found.js"></script></body></html>';
 
