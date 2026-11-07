@@ -262,7 +262,7 @@ resource "aws_route53_record" "alias" {
 resource "aws_cloudfront_function" "site_router" {
   name    = "neon1-site-router"
   runtime = "cloudfront-js-2.0"
-  comment = "neon1.tech: paths without a file extension render index.html"
+  comment = "neon1.tech: unknown paths get a 404 page"
   publish = true
   code    = file("${path.module}/functions/site-router.js")
 }
