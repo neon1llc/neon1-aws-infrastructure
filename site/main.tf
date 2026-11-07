@@ -6,9 +6,13 @@
 locals {
   www = "www.${var.domain}"
 
+  # Response headers both the site and the portal send. HSTS is a host-wide policy, so the
+  # two must agree; every *.neon1.tech host already serves HTTPS (auth is Cognito's CloudFront)
+  hsts_max_age     = 63072000
+  permissions_rule = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+
   # AWS managed policies (stable IDs)
   caching_optimized_policy = "658327ea-f89d-4fab-a63d-7e88639e58f6"
-  security_headers_policy  = "67f7725c-6f97-4210-82d7-5512b31e9d03"
   caching_disabled_policy  = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
 
   all_viewer_except_host_policy = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
@@ -68,19 +72,30 @@ resource "aws_s3_bucket_lifecycle_configuration" "site" {
 }
 
 
-# Only this distribution may read objects
+# Only this distribution may read objects. Listing lets S3 answer a missing file with
+# 404 instead of 403; CloudFront forwards no query strings here, so it can't return a listing
 resource "aws_s3_bucket_policy" "site" {
   bucket = aws_s3_bucket.site.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid       = "AllowCloudFrontOAC"
-      Effect    = "Allow"
-      Principal = { Service = "cloudfront.amazonaws.com" }
-      Action    = "s3:GetObject"
-      Resource  = "${aws_s3_bucket.site.arn}/*"
-      Condition = { StringEquals = { "AWS:SourceArn" = aws_cloudfront_distribution.site.arn } }
-    }]
+    Statement = [
+      {
+        Sid       = "AllowCloudFrontOAC"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.site.arn}/*"
+        Condition = { StringEquals = { "AWS:SourceArn" = aws_cloudfront_distribution.site.arn } }
+      },
+      {
+        Sid       = "AllowCloudFrontOACMissingAs404"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:ListBucket"
+        Resource  = aws_s3_bucket.site.arn
+        Condition = { StringEquals = { "AWS:SourceArn" = aws_cloudfront_distribution.site.arn } }
+      },
+    ]
   })
 }
 
@@ -158,9 +173,9 @@ resource "aws_cloudfront_distribution" "site" {
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
     cache_policy_id            = local.caching_optimized_policy
-    response_headers_policy_id = local.security_headers_policy
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.site.id
 
-    # Unknown page paths render the site; missing files stay real errors
+    # www redirects to the apex; unknown page paths get the not-found page
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.site_router.arn
@@ -262,7 +277,7 @@ resource "aws_route53_record" "alias" {
 resource "aws_cloudfront_function" "site_router" {
   name    = "neon1-site-router"
   runtime = "cloudfront-js-2.0"
-  comment = "neon1.tech: unknown paths get a 404 page"
+  comment = "neon1.tech: www to the apex; unknown paths get a 404 page"
   publish = true
   code    = file("${path.module}/functions/site-router.js")
 }
@@ -272,9 +287,61 @@ resource "aws_cloudfront_function" "site_router" {
 resource "aws_cloudfront_function" "portal_router" {
   name    = "neon1-1neon-router"
   runtime = "cloudfront-js-2.0"
-  comment = "1NEON: /1NEON -> /1NEON/, app routes render /1NEON/index.html"
+  comment = "1NEON: www to the apex, /1NEON -> /1NEON/, app routes render the shell"
   publish = true
   code    = file("${path.module}/functions/portal-router.js")
+}
+
+
+# The marketing site's headers: same-origin scripts, styles, fonts, and connections only.
+# The page keeps no inline scripts or styles (see neon1-site's README), so no hashes or nonces
+resource "aws_cloudfront_response_headers_policy" "site" {
+  name    = "neon1-site-headers"
+  comment = "neon1.tech marketing site security headers"
+
+  # CSP, HSTS matching the portal, no sniffing, no framing, and a strict referrer
+  security_headers_config {
+    content_security_policy {
+      content_security_policy = join("; ", [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self'",
+        "img-src 'self' data:",
+        "font-src 'self'",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "upgrade-insecure-requests",
+      ])
+      override = true
+    }
+    strict_transport_security {
+      access_control_max_age_sec = local.hsts_max_age
+      include_subdomains         = true
+      preload                    = false
+      override                   = true
+    }
+    content_type_options { override = true }
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+  }
+
+  # No device or payment access; the white rabbit needs only WebGL, which this doesn't touch
+  custom_headers_config {
+    items {
+      header   = "Permissions-Policy"
+      value    = local.permissions_rule
+      override = true
+    }
+  }
 }
 
 
@@ -302,7 +369,7 @@ resource "aws_cloudfront_response_headers_policy" "portal" {
       override = true
     }
     strict_transport_security {
-      access_control_max_age_sec = 63072000
+      access_control_max_age_sec = local.hsts_max_age
       include_subdomains         = true
       preload                    = false
       override                   = true
@@ -322,7 +389,7 @@ resource "aws_cloudfront_response_headers_policy" "portal" {
   custom_headers_config {
     items {
       header   = "Permissions-Policy"
-      value    = "camera=(), microphone=(), geolocation=(), payment=()"
+      value    = local.permissions_rule
       override = true
     }
   }
