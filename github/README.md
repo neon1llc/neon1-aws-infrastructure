@@ -18,7 +18,7 @@ An account can have only one provider for `token.actions.githubusercontent.com`.
 ```bash
 terraform -chdir=github init
 terraform -chdir=github import aws_iam_openid_connect_provider.github \
-  arn:aws:iam::353036311148:oidc-provider/token.actions.githubusercontent.com
+  arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com
 ```
 
 After applying, store the role ARNs as repository variables:
