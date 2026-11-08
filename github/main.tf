@@ -15,6 +15,7 @@ locals {
     terraform        = "${var.github_org}/${var.infra_repo}"
     portal_deploy    = var.portal_subject
     portal_terraform = var.portal_subject
+    chat_terraform   = var.chat_subject
   }
 
   site_bucket_arn = "arn:aws:s3:::${var.site_bucket}"
@@ -176,6 +177,9 @@ data "aws_iam_policy_document" "terraform" {
       "cloudfront:UpdateFunction",
       "cloudfront:PublishFunction",
       "cloudfront:DeleteFunction",
+      "cloudfront:CreateOriginRequestPolicy",
+      "cloudfront:UpdateOriginRequestPolicy",
+      "cloudfront:DeleteOriginRequestPolicy",
       "cloudfront:CreateResponseHeadersPolicy",
       "cloudfront:UpdateResponseHeadersPolicy",
       "cloudfront:DeleteResponseHeadersPolicy",
@@ -187,14 +191,18 @@ data "aws_iam_policy_document" "terraform" {
       "arn:aws:cloudfront::${local.account}:origin-access-control/*",
       "arn:aws:cloudfront::${local.account}:function/*",
       "arn:aws:cloudfront::${local.account}:response-headers-policy/*",
+      "arn:aws:cloudfront::${local.account}:origin-request-policy/*",
     ]
   }
 
-  # The 1NEON stack publishes its origin domains here for the edge to read
+  # The 1NEON and neon1-chat stacks publish their origins (and the chat's edge secret) here
   statement {
-    sid       = "PortalParameters"
-    actions   = ["ssm:GetParameter", "ssm:GetParameters"]
-    resources = ["arn:aws:ssm:us-east-1:${local.account}:parameter/1neon/prod/*"]
+    sid     = "PortalParameters"
+    actions = ["ssm:GetParameter", "ssm:GetParameters"]
+    resources = [
+      "arn:aws:ssm:us-east-1:${local.account}:parameter/1neon/prod/*",
+      "arn:aws:ssm:us-east-1:${local.account}:parameter/neon1-chat/prod/*",
+    ]
   }
 
   statement {
