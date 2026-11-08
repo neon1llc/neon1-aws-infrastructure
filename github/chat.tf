@@ -42,14 +42,35 @@ data "aws_iam_policy_document" "chat_terraform" {
     ]
   }
 
-  # The function's own role; no other IAM
+  # The function's own role; no other IAM. Reading, tagging, trust, removing a policy, and deleting
+  # can't widen what a bounded role can do
   statement {
     sid = "FunctionRole"
     actions = [
-      "iam:CreateRole", "iam:DeleteRole", "iam:GetRole", "iam:TagRole", "iam:UntagRole", "iam:UpdateAssumeRolePolicy",
-      "iam:PutRolePolicy", "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:ListRolePolicies",
+      "iam:DeleteRole", "iam:GetRole", "iam:TagRole", "iam:UntagRole", "iam:UpdateAssumeRolePolicy",
+      "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:ListRolePolicies",
       "iam:ListAttachedRolePolicies", "iam:ListInstanceProfilesForRole",
     ]
+    resources = ["arn:aws:iam::${local.account}:role/${local.chat_prefix}"]
+  }
+
+  # Creating the role or writing its policy only with the chat boundary on it (boundaries.tf)
+  statement {
+    sid       = "BoundedFunctionRole"
+    actions   = ["iam:CreateRole", "iam:PutRolePolicy", "iam:PutRolePermissionsBoundary"]
+    resources = ["arn:aws:iam::${local.account}:role/${local.chat_prefix}"]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PermissionsBoundary"
+      values   = [aws_iam_policy.boundary_chat.arn]
+    }
+  }
+
+  # The boundary never comes off, and no managed policy can be attached around it
+  statement {
+    sid       = "KeepBoundary"
+    effect    = "Deny"
+    actions   = ["iam:DeleteRolePermissionsBoundary", "iam:AttachRolePolicy"]
     resources = ["arn:aws:iam::${local.account}:role/${local.chat_prefix}"]
   }
 
