@@ -9,6 +9,11 @@
 locals {
   portal_bucket_arn = "arn:aws:s3:::${var.portal_app_bucket}"
   portal_prefix     = "1neon-prod"
+  # The function and scanner roles 1NEON's Terraform manages
+  portal_role_arns = [
+    "arn:aws:iam::${local.account}:role/${local.portal_prefix}-*",
+    "arn:aws:iam::${local.account}:role/neon1-1neon-*",
+  ]
 }
 
 
@@ -105,18 +110,36 @@ data "aws_iam_policy_document" "portal_terraform" {
     resources = ["arn:aws:lambda:us-east-1:${local.account}:function:${local.portal_prefix}-*"]
   }
 
-  # Roles for 1NEON's own functions and the malware scanner; no other IAM
+  # Roles for 1NEON's own functions and the malware scanner; no other IAM. Reading, tagging, trust,
+  # removing a policy, and deleting can't widen what a bounded role can do
   statement {
     sid = "FunctionRoles"
     actions = [
-      "iam:CreateRole", "iam:DeleteRole", "iam:GetRole", "iam:TagRole", "iam:UntagRole", "iam:UpdateAssumeRolePolicy",
-      "iam:PutRolePolicy", "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:ListRolePolicies",
+      "iam:DeleteRole", "iam:GetRole", "iam:TagRole", "iam:UntagRole", "iam:UpdateAssumeRolePolicy",
+      "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:ListRolePolicies",
       "iam:ListAttachedRolePolicies", "iam:ListInstanceProfilesForRole",
     ]
-    resources = [
-      "arn:aws:iam::${local.account}:role/${local.portal_prefix}-*",
-      "arn:aws:iam::${local.account}:role/neon1-1neon-*",
-    ]
+    resources = local.portal_role_arns
+  }
+
+  # Creating a role or writing its policy only with the 1NEON boundary on it (boundaries.tf)
+  statement {
+    sid       = "BoundedFunctionRoles"
+    actions   = ["iam:CreateRole", "iam:PutRolePolicy", "iam:PutRolePermissionsBoundary"]
+    resources = local.portal_role_arns
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PermissionsBoundary"
+      values   = [aws_iam_policy.boundary_portal.arn]
+    }
+  }
+
+  # The boundary never comes off, and no managed policy can be attached around it
+  statement {
+    sid       = "KeepBoundary"
+    effect    = "Deny"
+    actions   = ["iam:DeleteRolePermissionsBoundary", "iam:AttachRolePolicy"]
+    resources = local.portal_role_arns
   }
 
   # Those roles may only be handed to Lambda or GuardDuty
