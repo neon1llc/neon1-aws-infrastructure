@@ -17,7 +17,7 @@ Content is deployed by syncing the site build into the `bucket` output and inval
 
 ## 1NEON at /1NEON
 
-The distribution also serves the 1NEON portal (neon1llc/1NEON):
+The distribution also serves the 1NEON portal (neon1llc/neon1-1NEON):
 
 - `/1NEON/api/*` goes to the portal's HTTP API, uncached, with cookies and query strings forwarded.
 - `/1NEON*` goes to the portal's private bucket. `functions/portal-router.js` serves the app shell for app routes.
