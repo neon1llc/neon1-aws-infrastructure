@@ -52,6 +52,13 @@ data "aws_iam_policy_document" "boundary_portal" {
     resources = ["arn:aws:ses:us-east-1:${local.account}:identity/notify.neon1.tech", "arn:aws:ses:us-east-1:${local.account}:configuration-set/${local.portal_prefix}"]
   }
 
+  # Texts from the account's numbers (only 1NEON has any)
+  statement {
+    sid       = "Texts"
+    actions   = ["sms-voice:SendTextMessage"]
+    resources = ["arn:aws:sms-voice:us-east-1:${local.account}:phone-number/*"]
+  }
+
   # The EventBridge rules GuardDuty manages for the scan
   statement {
     sid       = "ScanRules"
