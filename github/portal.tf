@@ -140,6 +140,7 @@ data "aws_iam_policy_document" "portal_terraform" {
       "guardduty:*MalwareProtectionPlan*",
       "guardduty:TagResource",
       "guardduty:UntagResource",
+      "guardduty:ListTagsForResource",
       "ses:Get*",
       "ses:List*",
       "logs:DescribeLogGroups",
