@@ -179,6 +179,17 @@ data "aws_iam_policy_document" "portal_terraform" {
     resources = ["*"]
   }
 
+  # Text messages: 1NEON's toll-free number and its opt-out list (the only texting in this account)
+  statement {
+    sid = "Texts"
+    actions = [
+      "sms-voice:RequestPhoneNumber", "sms-voice:ReleasePhoneNumber", "sms-voice:UpdatePhoneNumber", "sms-voice:DescribePhoneNumbers",
+      "sms-voice:CreateOptOutList", "sms-voice:DeleteOptOutList", "sms-voice:DescribeOptOutLists", "sms-voice:DescribeOptedOutNumbers",
+      "sms-voice:TagResource", "sms-voice:UntagResource", "sms-voice:ListTagsForResource",
+    ]
+    resources = ["arn:aws:sms-voice:us-east-1:${local.account}:*"]
+  }
+
   # The notify.neon1.tech identity and its configuration set
   statement {
     sid       = "Mail"
