@@ -2,7 +2,7 @@
 # Terraform.
 
 
-# --- 1NEON portal (neon1llc/1NEON): deploy the app, and run its own Terraform ---
+# --- 1NEON portal (neon1llc/neon1-1NEON): deploy the app, and run its own Terraform ---
 
 
 # The 1NEON app bucket and the name prefix of its resources
@@ -243,7 +243,7 @@ resource "aws_iam_role_policy" "portal_terraform" {
 }
 
 
-# Set as AWS_DEPLOY_ROLE_ARN and AWS_TERRAFORM_ROLE_ARN in neon1llc/1NEON
+# Set as AWS_DEPLOY_ROLE_ARN and AWS_TERRAFORM_ROLE_ARN in neon1llc/neon1-1NEON
 output "portal_deploy_role_arn" {
   value = aws_iam_role.portal_deploy.arn
 }

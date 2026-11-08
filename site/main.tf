@@ -182,7 +182,7 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
-  # --- 1NEON portal at /1NEON (resources owned by the neon1llc/1NEON repo) ---
+  # --- 1NEON portal at /1NEON (resources owned by the neon1llc/neon1-1NEON repo) ---
 
   # The portal's HTTP API, over HTTPS only
   origin {
@@ -457,7 +457,7 @@ resource "aws_cloudfront_origin_request_policy" "chat" {
 }
 
 
-# Published by the 1NEON repo's Terraform (infra/envs/prod). Apply that stack first
+# Published by the neon1-1NEON repo's Terraform (infra/envs/prod). Apply that stack first
 data "aws_ssm_parameter" "portal" {
   for_each = toset(["app_bucket_domain", "api_domain"])
   name     = "/1neon/prod/${each.key}"
