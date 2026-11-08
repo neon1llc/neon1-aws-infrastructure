@@ -203,6 +203,38 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
+  # The assistant's HTTP API. CloudFront adds the secret header the function checks, so the
+  # API only answers through neon1.tech and its per-visitor caps can't be bypassed
+  origin {
+    origin_id   = "neon1-chat-api"
+    domain_name = data.aws_ssm_parameter.chat["api_domain"].value
+
+    custom_header {
+      name  = "x-origin-verify"
+      value = data.aws_ssm_parameter.chat["origin_secret"].value
+    }
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  # Assistant API: never cached; only the body type and the viewer's address reach it
+  ordered_cache_behavior {
+    path_pattern               = "/chat/api/*"
+    target_origin_id           = "neon1-chat-api"
+    viewer_protocol_policy     = "https-only"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = local.caching_disabled_policy
+    origin_request_policy_id   = aws_cloudfront_origin_request_policy.chat.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.site.id
+  }
+
   # API first: never cached, every method, cookies and query strings forwarded
   ordered_cache_behavior {
     path_pattern               = "/1NEON/api/*"
@@ -392,6 +424,35 @@ resource "aws_cloudfront_response_headers_policy" "portal" {
       value    = local.permissions_rule
       override = true
     }
+  }
+}
+
+
+# Published by the neon1-chat repo's Terraform (infra/). Apply that stack first
+data "aws_ssm_parameter" "chat" {
+  for_each = toset(["api_domain", "origin_secret"])
+  name     = "/neon1-chat/prod/${each.key}"
+}
+
+
+# The assistant needs no cookies or query strings; the viewer's address feeds its rate limit
+resource "aws_cloudfront_origin_request_policy" "chat" {
+  name    = "neon1-chat-api"
+  comment = "Content type and viewer address for the neon1.tech assistant"
+
+  cookies_config {
+    cookie_behavior = "none"
+  }
+
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = ["content-type", "CloudFront-Viewer-Address"]
+    }
+  }
+
+  query_strings_config {
+    query_string_behavior = "none"
   }
 }
 

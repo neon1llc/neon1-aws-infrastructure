@@ -68,3 +68,11 @@ variable "portal_app_bucket" {
   type        = string
   default     = "neon1-1neon-app-prod"
 }
+
+
+# The neon1.tech assistant: its OIDC subject, by owner and repository ID as well as name
+variable "chat_subject" {
+  description = "OIDC subject prefix for the neon1-chat repository, without the repo: and :ref parts."
+  type        = string
+  default     = "neon1llc@226603321/neon1-chat@1450393950"
+}
