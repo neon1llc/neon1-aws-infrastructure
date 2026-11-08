@@ -268,6 +268,13 @@ data "aws_iam_policy_document" "terraform" {
       "arn:aws:iam::${local.account}:role/github-1neon-*",
     ]
   }
+
+  # The permission boundaries this stack defines, read-only, so CI can plan them too
+  statement {
+    sid       = "BoundaryRead"
+    actions   = ["iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListPolicyVersions", "iam:ListPolicyTags"]
+    resources = ["arn:aws:iam::${local.account}:policy/neon1-boundary-*"]
+  }
 }
 
 
