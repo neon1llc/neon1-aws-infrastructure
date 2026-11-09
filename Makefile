@@ -16,12 +16,12 @@ GITLEAKS_IMAGE := ghcr.io/gitleaks/gitleaks:v8.30.1
 DOCKER_RUN     := docker run --rm -u "$$(id -u):$$(id -g)" -v "$(CURDIR):/src" -w /src
 
 .DEFAULT_GOAL := help
-.PHONY: help check fmt fmt-check validate lint sec secrets plan apply stack
+.PHONY: help check fmt fmt-check validate test lint sec secrets plan apply stack account
 
 
 ##@ Checks
 
-check: fmt-check validate lint sec secrets ## Run every static check
+check: fmt-check validate test lint sec secrets ## Run every static check
 
 fmt: ## Format all Terraform files
 	terraform fmt -recursive
@@ -35,6 +35,9 @@ validate: ## Validate each stack without touching remote state
 		terraform -chdir=$$s init -backend=false -input=false >/dev/null || exit 1; \
 		terraform -chdir=$$s validate -no-color || exit 1; \
 	done
+
+test: ## Run the CloudFront Function fixtures with Node
+	node --test site/functions/test/routers.test.mjs
 
 # CI always has Docker, so only a local run without either tool skips
 lint: ## Lint with tflint
@@ -66,17 +69,27 @@ secrets: ## Scan the git history for secrets with gitleaks
 
 ##@ Stacks
 
-plan: stack ## Save a plan for one stack: make plan STACK=site
+plan: stack account ## Save a plan for one stack: make plan STACK=site
 	terraform -chdir=$(STACK) init -input=false
-	terraform -chdir=$(STACK) plan -input=false -out=$(PLAN)
+	terraform -chdir=$(STACK) plan -input=false -var expected_account_id=$(EXPECTED_ACCOUNT) -out=$(PLAN)
 
-# Applies exactly what was planned, then drops the plan so it can't be reused
-apply: stack ## Apply the saved plan for one stack: make apply STACK=site
+# Applies exactly what was planned (the plan holds the expected account), then drops the plan so it
+# can't be reused
+apply: stack account ## Apply the saved plan for one stack: make apply STACK=site
 	@test -f $(STACK)/$(PLAN) || { echo "apply: run make plan STACK=$(STACK) first"; exit 1; }
 	@terraform -chdir=$(STACK) apply -input=false $(PLAN); \
 	status=$$?; \
 	rm -f $(STACK)/$(PLAN); \
 	exit $$status
+
+# The account every plan and apply must run in: EXPECTED_ACCOUNT, else the untracked .expected-account
+# file. The credentials in the environment must belong to it before Terraform starts
+EXPECTED_ACCOUNT ?= $(shell cat .expected-account 2>/dev/null)
+
+account:
+	@test -n "$(EXPECTED_ACCOUNT)" || { echo "Set EXPECTED_ACCOUNT, or put the account ID in .expected-account"; exit 1; }
+	@actual=$$(aws sts get-caller-identity --query Account --output text) || exit 1; \
+	test "$$actual" = "$(EXPECTED_ACCOUNT)" || { echo "These credentials are for another AWS account; stopping"; exit 1; }
 
 stack:
 	@test -n "$(STACK)" && test -f "$(STACK)/versions.tf" || { \

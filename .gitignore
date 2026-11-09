@@ -22,3 +22,6 @@ terraform.rc
 
 # Saved plans hold resolved values; never commit them
 tfplan
+
+# The account ID the Makefile checks credentials against; local to each machine
+.expected-account

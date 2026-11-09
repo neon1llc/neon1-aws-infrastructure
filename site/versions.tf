@@ -26,6 +26,8 @@ terraform {
 # CloudFront certificates must live in us-east-1, so one region covers everything
 provider "aws" {
   region = "us-east-1"
+  # Refuse to plan or apply against any account but the expected one
+  allowed_account_ids = [var.expected_account_id]
 
   default_tags {
     tags = {
