@@ -41,3 +41,7 @@ Manual steps: applying `github` (its role can't change IAM), confirming each ala
 Everything here is production-specific: one account, `us-east-1`, and the names above. A staging account would need its own state bucket, `EXPECTED_ACCOUNT`, and variable values; nothing here assumes it exists.
 
 Rollback: revert the commit on main and let CI apply it (or apply `github` by hand). State is versioned in `neon1-tfstate`, so a bad state write can be restored from an earlier object version.
+
+## License
+
+The code is MIT licensed (see `LICENSE`). The license covers the code only: the neon1 and 1NEON names, logos, and other brand marks are not licensed, so please don't use them in a way that suggests your work comes from neon1 LLC.
