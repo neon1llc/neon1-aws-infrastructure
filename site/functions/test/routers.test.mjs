@@ -55,3 +55,15 @@ test("the site router keeps its home page, files, www redirect, and not-found pa
   assert.equal(site(event("/about", { host: "www.neon1.tech", qs: { x: { value: "1" } } })).headers.location.value, "https://neon1.tech/about?x=1");
   assert.equal(site(event("/nope")).statusCode, 404);
 });
+
+test("knowledge center folders serve their index page, and gain a slash when they lack one", () => {
+  assert.equal(site(event("/knowledge/")).uri, "/knowledge/index.html");
+  assert.equal(site(event("/knowledge/forms/intake/")).uri, "/knowledge/forms/intake/index.html");
+  assert.equal(site(event("/knowledge/forms/intake/neon1-intake.pdf")).uri, "/knowledge/forms/intake/neon1-intake.pdf");
+  const bare = site(event("/knowledge", { qs: { q: { value: "backup" } } }));
+  assert.equal(bare.statusCode, 301);
+  assert.equal(bare.headers.location.value, "/knowledge/?q=backup");
+  assert.equal(site(event("/knowledge/forms/intake")).headers.location.value, "/knowledge/forms/intake/");
+  assert.equal(site(event("/knowledgebase")).statusCode, 404);
+  assert.equal(site(event("/knowledge/x/", { host: "www.neon1.tech" })).headers.location.value, "https://neon1.tech/knowledge/x/");
+});
