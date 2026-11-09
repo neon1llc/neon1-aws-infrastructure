@@ -13,15 +13,23 @@ var NOT_FOUND = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '<script type="module" src="/shared/not-found.js"></script></body></html>';
 
 
-// The same path and query on the apex, so www links and bookmarks land on the one canonical host
-function toApex(request) {
+// The request's query string, as it arrived, with its leading "?" (or nothing)
+function query(request) {
   var qs = request.querystring, parts = [];
   for (var k in qs) {
     var vals = qs[k].multiValue ? qs[k].multiValue : [qs[k]];
     for (var i = 0; i < vals.length; i++) parts.push(vals[i].value === "" ? k : k + "=" + vals[i].value);
   }
-  var location = "https://neon1.tech" + request.uri + (parts.length ? "?" + parts.join("&") : "");
+  return parts.length ? "?" + parts.join("&") : "";
+}
+
+function redirect(location) {
   return { statusCode: 301, statusDescription: "Moved Permanently", headers: { location: { value: location } } };
+}
+
+// The same path and query on the apex, so www links and bookmarks land on the one canonical host
+function toApex(request) {
+  return redirect("https://neon1.tech" + request.uri + query(request));
 }
 
 
@@ -31,6 +39,13 @@ function handler(event) {
   var uri = request.uri;
   if (request.headers.host && request.headers.host.value === "www.neon1.tech") return toApex(request);
   if (uri === "/" || uri.lastIndexOf(".") > uri.lastIndexOf("/")) return request;
+  // The knowledge center (written by neon1-site's scripts/knowledge.mjs) is folders of index.html pages:
+  // a folder path serves its index.html, and the same path without its final slash gets one
+  if (uri === "/knowledge" || uri.indexOf("/knowledge/") === 0) {
+    if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
+    request.uri = uri + "index.html";
+    return request;
+  }
   return {
     statusCode: 404,
     statusDescription: "Not Found",
