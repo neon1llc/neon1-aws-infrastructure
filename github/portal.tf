@@ -154,12 +154,39 @@ data "aws_iam_policy_document" "portal_terraform" {
     }
   }
 
-  # Cognito, API Gateway, GuardDuty and SES read calls can't be scoped by name
+  # Changes to 1NEON's own user pool (its domain, clients, and settings are all under the pool)
+  statement {
+    sid       = "UserPool"
+    actions   = ["cognito-idp:*"]
+    resources = ["arn:aws:cognito-idp:us-east-1:${local.account}:userpool/${var.portal_user_pool_id}"]
+  }
+
+  # A replacement pool may be created only carrying the portal's tag; listing and domain lookups
+  # can't be scoped. Every later change needs the new ID in portal_user_pool_id first
+  statement {
+    sid       = "UserPoolCreate"
+    actions   = ["cognito-idp:CreateUserPool"]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/Project"
+      values   = ["1neon"]
+    }
+  }
+
+  # 1NEON's HTTP API and everything under it, plus creating and listing APIs (no ID yet) and tags
+  statement {
+    sid       = "Api"
+    actions   = ["apigateway:*"]
+    resources = ["arn:aws:apigateway:us-east-1::/apis", "arn:aws:apigateway:us-east-1::/apis/${var.portal_api_id}", "arn:aws:apigateway:us-east-1::/apis/${var.portal_api_id}/*", "arn:aws:apigateway:us-east-1::/tags/*"]
+  }
+
+  # GuardDuty and SES calls, and reads, that can't be scoped by name
   statement {
     sid = "Services"
     actions = [
-      "cognito-idp:*",
-      "apigateway:*",
+      "cognito-idp:ListUserPools",
+      "cognito-idp:DescribeUserPoolDomain",
       "guardduty:*MalwareProtectionPlan*",
       "guardduty:TagResource",
       "guardduty:UntagResource",

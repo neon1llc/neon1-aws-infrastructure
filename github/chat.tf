@@ -100,11 +100,12 @@ data "aws_iam_policy_document" "chat_terraform" {
     }
   }
 
-  # HTTP APIs have generated IDs, so API Gateway can't be scoped by name
+  # The chat's HTTP API and everything under it, plus creating and listing APIs (no ID yet) and tags.
+  # HTTP APIs have generated IDs, so the ID comes from chat_api_id
   statement {
     sid       = "Api"
     actions   = ["apigateway:*"]
-    resources = ["arn:aws:apigateway:us-east-1::/apis", "arn:aws:apigateway:us-east-1::/apis/*", "arn:aws:apigateway:us-east-1::/tags/*"]
+    resources = ["arn:aws:apigateway:us-east-1::/apis", "arn:aws:apigateway:us-east-1::/apis/${var.chat_api_id}", "arn:aws:apigateway:us-east-1::/apis/${var.chat_api_id}/*", "arn:aws:apigateway:us-east-1::/tags/*"]
   }
 
   # Its parameters, budget, and the reads Terraform's refresh needs
