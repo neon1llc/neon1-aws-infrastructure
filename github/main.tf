@@ -31,7 +31,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 
 # Pushes to main only. Pull requests, other branches and environments get a
-# different subject claim and can't assume either role
+# different subject claim and can't assume any of these roles
 data "aws_iam_policy_document" "trust" {
   for_each = local.repos
 
