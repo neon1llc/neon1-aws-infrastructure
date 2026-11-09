@@ -1,9 +1,16 @@
 # github
 
-Lets GitHub Actions reach AWS without stored keys. It holds the account's GitHub OIDC provider and two roles, each trusted only for pushes to `main` of one repository:
+Lets GitHub Actions reach AWS without stored keys. It holds the account's GitHub OIDC provider, five roles (each trusted only for pushes to `main` of one repository, matched by owner and repository ID as well as name), and the permission boundaries those roles must put on any function role they create.
 
-- `github-neon1-site-deploy` for `neon1llc/neon1-site`. It can list and write objects in the site bucket and create or read invalidations on the site distribution.
-- `github-neon1-infra-terraform` for `neon1llc/neon1-aws-infrastructure`. It can manage the `site` stack's resources, read and write that stack's state, and read this stack so CI can plan it.
+| Role | Repository | What it can do |
+|---|---|---|
+| `github-neon1-site-deploy` | neon1llc/neon1-site | List and write the site bucket, and invalidate the site distribution. |
+| `github-neon1-infra-terraform` | neon1llc/neon1-aws-infrastructure | Manage the `site` stack, read and write its state, and read this stack so CI can plan it. |
+| `github-1neon-deploy` | neon1llc/neon1-1NEON | Write the app's files under `1NEON/`, upload code to the two `1neon-prod-*` functions, and invalidate the CDN. |
+| `github-1neon-terraform` | neon1llc/neon1-1NEON | Apply 1NEON's `infra/envs/prod`: its buckets, table, functions, user pool, HTTP API, schedule, alarms, texting number, and mail identity, each scoped to 1NEON's names or IDs. |
+| `github-neon1-chat-terraform` | neon1llc/neon1-chat | Apply the assistant's `infra/`, which also ships its code: table, function, HTTP API, alarms, and budget. |
+
+Roles that create function roles may only do so with their boundary attached (`boundaries.tf`), and can never remove it. The IDs that scope the user pool, the HTTP APIs, and the assistant's model are variables with today's values (`portal_user_pool_id`, `portal_api_id`, `chat_api_id`, `chat_model_id`). If one of those resources is ever replaced, put its new ID there and apply this stack before the other stack touches it.
 
 The Terraform role can't change IAM. That keeps a bad workflow from granting itself more access, and it means this stack is always applied by hand:
 
