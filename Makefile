@@ -9,10 +9,10 @@ STACKS := $(patsubst %/versions.tf,%,$(wildcard */versions.tf))
 STACK  ?=
 PLAN   := tfplan
 
-# Pinned images stand in for tools that aren't installed
-TFLINT_IMAGE   := ghcr.io/terraform-linters/tflint:v0.65.0
-TRIVY_IMAGE    := ghcr.io/aquasecurity/trivy:0.76.1
-GITLEAKS_IMAGE := ghcr.io/gitleaks/gitleaks:v8.30.1
+# Images pinned by digest (the tag is for people) stand in for tools that aren't installed
+TFLINT_IMAGE   := ghcr.io/terraform-linters/tflint:v0.65.0@sha256:2788f4d4fc663c0e953b011b01bf443fe5bfce7587ee916e588e6057b85d6359
+TRIVY_IMAGE    := ghcr.io/aquasecurity/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+GITLEAKS_IMAGE := ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
 DOCKER_RUN     := docker run --rm -u "$$(id -u):$$(id -g)" -v "$(CURDIR):/src" -w /src
 
 .DEFAULT_GOAL := help
