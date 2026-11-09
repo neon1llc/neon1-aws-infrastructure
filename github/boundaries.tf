@@ -38,11 +38,11 @@ data "aws_iam_policy_document" "boundary_portal" {
     resources = ["arn:aws:s3:::neon1-1neon-*"]
   }
 
-  # Invites and account switches in the user pool
+  # Invites and account switches in 1NEON's user pool only
   statement {
     sid       = "Directory"
     actions   = ["cognito-idp:AdminGetUser", "cognito-idp:AdminCreateUser", "cognito-idp:AdminDisableUser", "cognito-idp:AdminEnableUser", "cognito-idp:AdminUserGlobalSignOut"]
-    resources = ["arn:aws:cognito-idp:us-east-1:${local.account}:userpool/*"]
+    resources = ["arn:aws:cognito-idp:us-east-1:${local.account}:userpool/${var.portal_user_pool_id}"]
   }
 
   # Mail from notify.neon1.tech only
@@ -83,11 +83,12 @@ data "aws_iam_policy_document" "boundary_chat" {
     resources = ["arn:aws:logs:us-east-1:${local.account}:log-group:/aws/lambda/${local.chat_prefix}*"]
   }
 
-  # Model calls only; any inference profile in the account and the US foundation models it routes to
+  # Model calls only, to the one model the assistant is set up with (directly or through its US
+  # cross-region profile). Switching models is a deliberate change to chat_model_id
   statement {
     sid       = "Model"
     actions   = ["bedrock:InvokeModel"]
-    resources = ["arn:aws:bedrock:us-east-1:${local.account}:inference-profile/*", "arn:aws:bedrock:us-*::foundation-model/*"]
+    resources = ["arn:aws:bedrock:us-east-1:${local.account}:inference-profile/us.${var.chat_model_id}", "arn:aws:bedrock:us-*::foundation-model/${var.chat_model_id}"]
   }
 
   statement {
