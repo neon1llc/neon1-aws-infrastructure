@@ -42,6 +42,20 @@ data "aws_iam_policy_document" "chat_terraform" {
     ]
   }
 
+  # Service alarms: their email topic, the alarms themselves, and reading alarm state
+  statement {
+    sid       = "Alerts"
+    actions   = ["sns:*", "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms", "cloudwatch:TagResource", "cloudwatch:UntagResource", "cloudwatch:ListTagsForResource"]
+    resources = ["arn:aws:sns:us-east-1:${local.account}:${local.chat_prefix}-*", "arn:aws:cloudwatch:us-east-1:${local.account}:alarm:${local.chat_prefix}-*"]
+  }
+
+  # Alarm reads can't be scoped by name
+  statement {
+    sid       = "AlarmRead"
+    actions   = ["cloudwatch:Describe*", "cloudwatch:List*"]
+    resources = ["*"]
+  }
+
   # The function's own role; no other IAM. Reading, tagging, trust, removing a policy, and deleting
   # can't widen what a bounded role can do
   statement {
