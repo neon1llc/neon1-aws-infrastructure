@@ -76,3 +76,44 @@ variable "chat_subject" {
   type        = string
   default     = "neon1llc@226603321/neon1-chat@1450393950"
 }
+
+
+# The one account these stacks belong to. Given by the Makefile (from .expected-account locally, or
+# the role ARN in CI) rather than written here, and checked by the provider before any change
+variable "expected_account_id" {
+  description = "The 12-digit AWS account ID this stack must run in."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.expected_account_id))
+    error_message = "expected_account_id must be a 12-digit AWS account ID."
+  }
+}
+
+
+# Generated IDs of the resources each role manages. Mutations are scoped to these; if one is ever
+# recreated, its new ID goes here (creating a replacement is allowed, changing others is not)
+variable "portal_user_pool_id" {
+  description = "1NEON's Cognito user pool."
+  type        = string
+  default     = "us-east-1_C8Tl1RRPe"
+}
+
+variable "portal_api_id" {
+  description = "1NEON's HTTP API."
+  type        = string
+  default     = "rqe8xwws41"
+}
+
+variable "chat_api_id" {
+  description = "The neon1.tech assistant's HTTP API."
+  type        = string
+  default     = "n3ju67jjrd"
+}
+
+# The assistant's model, matching neon1-chat's own model variable (without any "us." prefix)
+variable "chat_model_id" {
+  description = "Bedrock model ID the assistant may call."
+  type        = string
+  default     = "openai.gpt-oss-120b-1:0"
+}

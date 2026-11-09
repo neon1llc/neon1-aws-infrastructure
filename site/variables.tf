@@ -22,3 +22,16 @@ variable "bucket_name" {
   type        = string
   default     = "neon1-public-website"
 }
+
+
+# The one account these stacks belong to. Given by the Makefile (from .expected-account locally, or
+# the role ARN in CI) rather than written here, and checked by the provider before any change
+variable "expected_account_id" {
+  description = "The 12-digit AWS account ID this stack must run in."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.expected_account_id))
+    error_message = "expected_account_id must be a 12-digit AWS account ID."
+  }
+}

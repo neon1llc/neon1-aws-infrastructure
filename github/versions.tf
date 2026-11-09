@@ -25,6 +25,8 @@ terraform {
 # Credentials come from AWS_PROFILE / the environment, never hardcoded
 provider "aws" {
   region = "us-east-1"
+  # Refuse to plan or apply against any account but the expected one
+  allowed_account_ids = [var.expected_account_id]
 
   default_tags {
     tags = {
