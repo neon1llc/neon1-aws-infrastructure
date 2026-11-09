@@ -211,6 +211,17 @@ data "aws_iam_policy_document" "portal_terraform" {
     resources = ["arn:aws:sns:us-east-1:${local.account}:${local.portal_prefix}-*", "arn:aws:cloudwatch:us-east-1:${local.account}:alarm:${local.portal_prefix}-*"]
   }
 
+  # The once-a-minute schedule that runs the portal's message outbox worker
+  statement {
+    sid = "Schedule"
+    actions = [
+      "events:PutRule", "events:DeleteRule", "events:DescribeRule", "events:EnableRule", "events:DisableRule",
+      "events:PutTargets", "events:RemoveTargets", "events:ListTargetsByRule",
+      "events:TagResource", "events:UntagResource", "events:ListTagsForResource",
+    ]
+    resources = ["arn:aws:events:us-east-1:${local.account}:rule/${local.portal_prefix}-*"]
+  }
+
   # The portal's own budget
   statement {
     sid       = "Budget"
