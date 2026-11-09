@@ -112,18 +112,28 @@ resource "aws_acm_certificate" "site" {
 }
 
 
-# Apex and wildcard share one validation record; dedupe by name
+# One validation record per domain known from configuration. The wildcard's record is the apex's,
+# so the apex alone is enough; keys never depend on values ACM generates, so a plan always knows
+# what it will create, and the generated name, type, and value live only in the attributes
+locals {
+  cert_validation_domains = toset([var.domain])
+}
+
 resource "aws_route53_record" "cert_validation" {
-  for_each = {
-    for o in aws_acm_certificate.site.domain_validation_options : o.resource_record_name => o...
-  }
+  for_each = local.cert_validation_domains
 
   zone_id         = var.zone_id
-  name            = each.key
-  type            = each.value[0].resource_record_type
-  records         = [each.value[0].resource_record_value]
+  name            = one([for o in aws_acm_certificate.site.domain_validation_options : o.resource_record_name if o.domain_name == each.key])
+  type            = one([for o in aws_acm_certificate.site.domain_validation_options : o.resource_record_type if o.domain_name == each.key])
+  records         = [one([for o in aws_acm_certificate.site.domain_validation_options : o.resource_record_value if o.domain_name == each.key])]
   ttl             = 300
   allow_overwrite = true
+}
+
+# The record was keyed by its generated name before; moving it keeps the live record in place
+moved {
+  from = aws_route53_record.cert_validation["_82236c9f042662591db257322757db71.neon1.tech."]
+  to   = aws_route53_record.cert_validation["neon1.tech"]
 }
 
 
