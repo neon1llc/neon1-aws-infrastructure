@@ -77,11 +77,14 @@ jobs:
 
       # Plan every stack; apply only the ones marked apply. The expected account is the role's own,
       # so credentials that resolve anywhere else stop the run before Terraform starts
-      - run: make plan STACK=${{ matrix.stack }} EXPECTED_ACCOUNT="$(echo "$ROLE" | cut -d: -f5)"
+      # Block scalars, since the cut delimiter's colon would end a plain YAML value
+      - run: |
+          make plan STACK=${{ matrix.stack }} EXPECTED_ACCOUNT="$(echo "$ROLE" | cut -d: -f5)"
         env:
           ROLE: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
 
       - if: matrix.apply
-        run: make apply STACK=${{ matrix.stack }} EXPECTED_ACCOUNT="$(echo "$ROLE" | cut -d: -f5)"
+        run: |
+          make apply STACK=${{ matrix.stack }} EXPECTED_ACCOUNT="$(echo "$ROLE" | cut -d: -f5)"
         env:
           ROLE: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
