@@ -53,4 +53,12 @@ Emergency: an admin can switch a ruleset to "Disabled" in the repo's settings, m
 
 ## License
 
-The code is MIT licensed (see `LICENSE`). The license covers the code only: the neon1 and 1NEON names, logos, and other brand marks are not licensed, so please don't use them in a way that suggests your work comes from neon1 LLC.
+neon1-aws-infrastructure is source-available. You can read, run and change it, and every release becomes fully open two years after it's published.
+
+| What | License | File |
+|---|---|---|
+| Code: templates, scripts, Makefile | Functional Source License 1.1, ALv2 Future License. Use it for anything except a competing product or service. Each release becomes Apache-2.0 after two years. | `LICENSE-CODE` |
+| Written text: README and docs | CC BY-ND 4.0. Share word for word with credit, no altered versions. | `LICENSE` |
+| The neon1, 1NEON, N1 Supply and Ready, Secure, Go names, logos and brand marks | Not licensed for reuse | `TRADEMARK.md` |
+
+Required credit on every copy: "© neon1 LLC (neon1.tech)". Keep the `NOTICE` file with every copy.
