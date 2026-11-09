@@ -115,5 +115,5 @@ variable "chat_api_id" {
 variable "chat_model_id" {
   description = "Bedrock model ID the assistant may call."
   type        = string
-  default     = "openai.gpt-oss-120b-1:0"
+  default     = "qwen.qwen3-next-80b-a3b"
 }
