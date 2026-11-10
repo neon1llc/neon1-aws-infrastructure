@@ -56,6 +56,14 @@ test("the site router keeps its home page, files, www redirect, and not-found pa
   assert.equal(site(event("/nope")).statusCode, 404);
 });
 
+test("/faqs, with or without its slash, redirects to the questions in the knowledge center", () => {
+  for (const uri of ["/faqs", "/faqs/"]) {
+    const r = site(event(uri));
+    assert.equal(r.statusCode, 301);
+    assert.equal(r.headers.location.value, "/knowledge/faq/working-with-neon1/");
+  }
+});
+
 test("knowledge center folders serve their index page, and gain a slash when they lack one", () => {
   assert.equal(site(event("/knowledge/")).uri, "/knowledge/index.html");
   assert.equal(site(event("/knowledge/forms/intake/")).uri, "/knowledge/forms/intake/index.html");
