@@ -33,12 +33,14 @@ function toApex(request) {
 }
 
 
-// www goes to the apex; "/" and anything with a file extension go to S3; every other path is not found
+// www goes to the apex; "/" and anything with a file extension go to S3; /faqs redirects; every other path is not found
 function handler(event) {
   var request = event.request;
   var uri = request.uri;
   if (request.headers.host && request.headers.host.value === "www.neon1.tech") return toApex(request);
   if (uri === "/" || uri.lastIndexOf(".") > uri.lastIndexOf("/")) return request;
+  // neon1.tech/faqs, like neon1.tech/1NEON/faqs: the full questions live in the knowledge center
+  if (uri === "/faqs" || uri === "/faqs/") return redirect("/knowledge/faq/working-with-neon1/");
   // The knowledge center (written by neon1-site's scripts/knowledge.mjs) is folders of index.html pages:
   // a folder path serves its index.html, and the same path without its final slash gets one
   if (uri === "/knowledge" || uri.indexOf("/knowledge/") === 0) {
