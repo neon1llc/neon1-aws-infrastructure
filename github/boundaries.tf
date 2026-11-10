@@ -65,6 +65,14 @@ data "aws_iam_policy_document" "boundary_portal" {
     actions   = ["events:PutRule", "events:DeleteRule", "events:PutTargets", "events:RemoveTargets", "events:DescribeRule"]
     resources = ["arn:aws:events:us-east-1:${local.account}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*"]
   }
+
+  # Neo for signed-in people: model calls only, to the one model 1NEON is set up with (through its US
+  # cross-region profile). Switching models is a deliberate change to portal_neo_model_id
+  statement {
+    sid       = "Model"
+    actions   = ["bedrock:InvokeModel"]
+    resources = ["arn:aws:bedrock:us-east-1:${local.account}:inference-profile/us.${var.portal_neo_model_id}", "arn:aws:bedrock:us-*::foundation-model/${var.portal_neo_model_id}"]
+  }
 }
 
 resource "aws_iam_policy" "boundary_portal" {

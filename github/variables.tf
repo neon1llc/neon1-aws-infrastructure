@@ -112,6 +112,12 @@ variable "chat_api_id" {
 }
 
 # The assistant's model, matching neon1-chat's own model variable (without any "us." prefix)
+variable "portal_neo_model_id" {
+  description = "Bedrock model ID 1NEON's Neo may call."
+  type        = string
+  default     = "anthropic.claude-sonnet-5-5"
+}
+
 variable "chat_model_id" {
   description = "Bedrock model ID the assistant may call."
   type        = string
