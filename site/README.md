@@ -23,6 +23,7 @@ The distribution also serves the 1NEON portal (neon1llc/neon1-1NEON):
 - `/1NEON*` goes to the portal's private bucket. `functions/portal-router.js` serves the app shell for app routes.
 - Both routers send `www.neon1.tech` to the same path and query on the apex with a 301, so neon1.tech is the one canonical host.
 - The default behavior uses `functions/site-router.js` for page paths. This replaces the old distribution-wide 403/404 → `/index.html` error pages, which would have turned portal API errors into the marketing page.
+- Releases: neon1-site's deploy uploads each release whole under `releases/<id>/`, then sets the `release` key in the `neon1-site-release` key value store. The site router reads it and serves pages, scripts, and styles from that folder, so every visitor moves to the new release at once, with no invalidation (new paths mean new cache keys). Fonts, media, and `.well-known` stay shared at the bucket's top. With no valid release set, the top level serves, as before releases.
 
 The portal's origin domains come from SSM parameters `/1neon/prod/app_bucket_domain` and `/1neon/prod/api_domain`, which the 1NEON stack publishes. Apply that stack before this one.
 

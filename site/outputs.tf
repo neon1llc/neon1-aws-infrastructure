@@ -15,3 +15,9 @@ output "distribution_id" {
 output "certificate_arn" {
   value = aws_acm_certificate.site.arn
 }
+
+
+# The release switch neon1-site's deploy writes to (it finds the store by name)
+output "release_store_arn" {
+  value = aws_cloudfront_key_value_store.site_release.arn
+}

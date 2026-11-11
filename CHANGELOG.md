@@ -2,6 +2,14 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
+## v0.4.0 - 2026-11-11
+
+### Added
+- A release switch for neon1.tech: the `neon1-site-release` key value store names the live release folder, and the site router serves pages, scripts, and styles from `releases/<id>/`, so a deploy moves every visitor to a new release at once. Fonts, media, and `.well-known` stay shared at the bucket's top. With no release set, the top level serves as before.
+
+### Changed
+- The site deploy role may read and switch the live release; the Terraform role may manage the release store.
+
 ## v0.3.0 - 2026-11-11
 
 ### Added
