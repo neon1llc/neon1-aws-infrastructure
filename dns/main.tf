@@ -1,0 +1,147 @@
+# dns/main.tf - Zone-wide records no app stack owns: the SOA serial, CAA, and the apex mail records
+# (Google Workspace MX, SPF, DKIM, DMARC, TLS reporting, and BIMI). The mail records were created by
+# hand when Workspace went live; allow_overwrite takes them over in place. 1NEON's own sending
+# subdomain (notify.neon1.tech) is managed in neon1-1NEON, and the site's aliases in site/.
+
+
+# --- SOA: Route 53's own record, with a dated serial ---
+# Route 53 starts every zone at serial 1 and never changes it. Checkers expect YYYYMMDDnn, so this
+# sets one; bump it when the zone changes in a way worth marking. The rest is Route 53's default
+
+
+resource "aws_route53_record" "soa" {
+  zone_id         = var.zone_id
+  name            = var.domain
+  type            = "SOA"
+  ttl             = 900
+  records         = ["${var.primary_name_server} awsdns-hostmaster.amazon.com. ${var.soa_serial} 7200 900 1209600 86400"]
+  allow_overwrite = true
+
+  # A zone can't lose its SOA; destroying this stack must leave it behind
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+
+# --- CAA: only Amazon's CA may issue certificates for neon1.tech and its subdomains ---
+# Every certificate here comes from ACM (CloudFront, the Cognito domain). Misissuance reports go to security@
+
+
+resource "aws_route53_record" "caa" {
+  zone_id = var.zone_id
+  name    = var.domain
+  type    = "CAA"
+  ttl     = 3600
+  records = concat(
+    [for ca in ["amazon.com", "amazontrust.com", "awstrust.com", "amazonaws.com"] : "0 issue \"${ca}\""],
+    ["0 issuewild \"amazon.com\"", "0 iodef \"mailto:security@${var.domain}\""],
+  )
+  allow_overwrite = true
+}
+
+
+# --- Receiving: Google Workspace ---
+
+
+resource "aws_route53_record" "mx" {
+  zone_id         = var.zone_id
+  name            = var.domain
+  type            = "MX"
+  ttl             = 3600
+  records         = ["1 smtp.google.com."]
+  allow_overwrite = true
+}
+
+
+# --- Apex TXT: SPF and Google verification share one record set ---
+# SPF allows Google Workspace and SES. ~all (softfail) is the usual pairing with an enforcing DMARC,
+# which decides the outcome for unaligned mail
+
+
+resource "aws_route53_record" "apex_txt" {
+  zone_id = var.zone_id
+  name    = var.domain
+  type    = "TXT"
+  ttl     = 3600
+  records = [
+    "v=spf1 include:_spf.google.com include:amazonses.com ~all",
+    "google-site-verification=${var.google_site_verification}",
+  ]
+  allow_overwrite = true
+}
+
+
+# --- DKIM: Google Workspace signs as d=neon1.tech ---
+# A 2048-bit key is longer than one 255-character TXT string, so it goes in as two
+
+
+locals {
+  dkim_value = "v=DKIM1;k=rsa;p=${var.google_dkim_public_key}"
+}
+
+
+resource "aws_route53_record" "google_dkim" {
+  zone_id         = var.zone_id
+  name            = "google._domainkey.${var.domain}"
+  type            = "TXT"
+  ttl             = 3600
+  records         = ["${substr(local.dkim_value, 0, 255)}\"\"${substr(local.dkim_value, 255, -1)}"]
+  allow_overwrite = true
+}
+
+
+# --- DMARC: aggregate reports to dmarc@, policy for the apex and every subdomain ---
+# Relaxed alignment, because SES mail is signed by notify.neon1.tech, which has its own stricter record
+
+
+locals {
+  dmarc_value = join("; ", [
+    "v=DMARC1",
+    "p=${var.dmarc_policy}",
+    "sp=${var.dmarc_policy}",
+    "rua=mailto:dmarc@${var.domain}",
+    "adkim=r",
+    "aspf=r",
+  ])
+}
+
+
+resource "aws_route53_record" "dmarc" {
+  zone_id         = var.zone_id
+  name            = "_dmarc.${var.domain}"
+  type            = "TXT"
+  ttl             = 300
+  records         = [local.dmarc_value]
+  allow_overwrite = true
+}
+
+
+# --- TLS reporting: receivers send daily reports of TLS failures delivering to our MX ---
+
+
+resource "aws_route53_record" "tls_rpt" {
+  zone_id         = var.zone_id
+  name            = "_smtp._tls.${var.domain}"
+  type            = "TXT"
+  ttl             = 3600
+  records         = ["v=TLSRPTv1; rua=mailto:dmarc@${var.domain}"]
+  allow_overwrite = true
+}
+
+
+# --- BIMI: the brand logo some inboxes show beside our mail ---
+# Receivers only honor BIMI under an enforcing DMARC. Gmail and Apple Mail also need a mark
+# certificate (a=); without one, the logo is self-asserted and only some providers show it
+
+
+resource "aws_route53_record" "bimi" {
+  count = var.bimi_logo_url == "" || var.dmarc_policy == "none" ? 0 : 1
+
+  zone_id         = var.zone_id
+  name            = "default._bimi.${var.domain}"
+  type            = "TXT"
+  ttl             = 3600
+  records         = ["v=BIMI1; l=${var.bimi_logo_url}; a=${var.bimi_authority_url}"]
+  allow_overwrite = true
+}

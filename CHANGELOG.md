@@ -2,6 +2,19 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
+## v0.2.0 - 2026-11-11
+
+### Added
+- The dns stack, applied on each push to main: a dated SOA serial, CAA records that let only Amazon's CA issue certificates for neon1.tech, TLS reporting to dmarc@, and a BIMI record for the neon1 logo.
+- The apex mail records (Google Workspace MX, SPF, DKIM, and DMARC), created by hand when Workspace went live, are now managed in that stack.
+
+### Changed
+- DMARC for neon1.tech and its subdomains moves from monitoring (`p=none`) to `p=quarantine`, so mail that fails authentication goes to spam instead of the inbox.
+- The Terraform role may change the dns stack's record names and types, and its state.
+
+### Removed
+- The `autodiscover` record left from an Amazon WorkMail setup that was never used; mail is on Google Workspace.
+
 ## v0.1.0 - 2026-11-10
 
 The first tagged release. These stacks had been applied from main without version numbers; this entry records what that release holds.
