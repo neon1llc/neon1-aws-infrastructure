@@ -265,10 +265,37 @@ data "aws_iam_policy_document" "terraform" {
         "neon1.tech",
         "google._domainkey.neon1.tech",
         "_dmarc.neon1.tech",
+        "_mta-sts.neon1.tech",
         "_smtp._tls.neon1.tech",
         "default._bimi.neon1.tech",
       ]
     }
+  }
+
+  # The dns stack reads DNSSEC signing (turned on by hand) and its KMS key, without changing them
+  statement {
+    sid       = "DnssecRead"
+    actions   = ["route53:GetDNSSEC"]
+    resources = ["arn:aws:route53:::hostedzone/${var.zone_id}"]
+  }
+
+  statement {
+    sid       = "DnssecKeyRead"
+    actions   = ["kms:ListAliases", "kms:DescribeKey"]
+    resources = ["*"]
+  }
+
+  # The dns stack's DNSSEC alarms
+  statement {
+    sid       = "DnsAlarms"
+    actions   = ["cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms", "cloudwatch:ListTagsForResource", "cloudwatch:TagResource", "cloudwatch:UntagResource"]
+    resources = ["arn:aws:cloudwatch:us-east-1:${local.account}:alarm:neon1-dns-*"]
+  }
+
+  statement {
+    sid       = "AlarmsRead"
+    actions   = ["cloudwatch:DescribeAlarms"]
+    resources = ["*"]
   }
 
   statement {

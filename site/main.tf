@@ -1,13 +1,17 @@
 # site/main.tf - The neon1.tech static site: private S3 origin -> CloudFront (OAC) -> Route 53 aliases.
-# The hosted zone is owned outside this stack; mail/DKIM records are managed separately.
+# The hosted zone is owned outside this stack; zone-wide and mail records are in dns/.
 
 
 # The www host and the AWS managed policy IDs the behaviors use
 locals {
   www = "www.${var.domain}"
 
+  # Mail servers fetch the MTA-STS policy from this host (RFC 8461); the routers serve it nothing else
+  mta_sts = "mta-sts.${var.domain}"
+
   # Response headers both the site and the portal send. HSTS is a host-wide policy, so the
-  # two must agree; every *.neon1.tech host already serves HTTPS (auth is Cognito's CloudFront)
+  # two must agree; every *.neon1.tech host already serves HTTPS (auth is Cognito's CloudFront).
+  # The domain is submitted to browsers' preload lists, so HTTPS is required before the first visit
   hsts_max_age     = 63072000
   permissions_rule = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 
@@ -163,7 +167,7 @@ resource "aws_cloudfront_distribution" "site" {
   comment             = "neon1 website distribution — S3 private origin behind CloudFront"
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # US/EU edges: cheapest tier that fits the audience
-  aliases             = [var.domain, local.www]
+  aliases             = [var.domain, local.www, local.mta_sts]
   is_ipv6_enabled     = true
   http_version        = "http2and3"
 
@@ -288,12 +292,12 @@ resource "aws_cloudfront_distribution" "site" {
 }
 
 
-# --- DNS: apex and www alias straight to the CDN (A + AAAA) ---
+# --- DNS: apex, www, and mta-sts alias straight to the CDN (A + AAAA) ---
 
 
 resource "aws_route53_record" "alias" {
   for_each = {
-    for pair in setproduct([var.domain, local.www], ["A", "AAAA"]) : "${pair[0]}-${pair[1]}" => pair
+    for pair in setproduct([var.domain, local.www, local.mta_sts], ["A", "AAAA"]) : "${pair[0]}-${pair[1]}" => pair
   }
 
   zone_id = var.zone_id
@@ -362,7 +366,7 @@ resource "aws_cloudfront_response_headers_policy" "site" {
     strict_transport_security {
       access_control_max_age_sec = local.hsts_max_age
       include_subdomains         = true
-      preload                    = false
+      preload                    = true
       override                   = true
     }
     content_type_options { override = true }
@@ -413,7 +417,7 @@ resource "aws_cloudfront_response_headers_policy" "portal" {
     strict_transport_security {
       access_control_max_age_sec = local.hsts_max_age
       include_subdomains         = true
-      preload                    = false
+      preload                    = true
       override                   = true
     }
     content_type_options { override = true }

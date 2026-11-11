@@ -25,8 +25,10 @@ function redirect(location) {
 function handler(event) {
   var request = event.request;
   var uri = request.uri;
-  // A sign-in on www would set cookies the apex can't use, so www goes to the same path on the apex
-  if (request.headers.host && request.headers.host.value === "www.neon1.tech") return redirect("https://neon1.tech" + uri + query(request));
+  // A sign-in on www would set cookies the apex can't use, so www (and the mail-only mta-sts host)
+  // goes to the same path on the apex
+  var host = request.headers.host ? request.headers.host.value : "";
+  if (host === "www.neon1.tech" || host === "mta-sts.neon1.tech") return redirect("https://neon1.tech" + uri + query(request));
   // The app lives under /1NEON/, so the bare path redirects there, query and all
   if (uri === "/1NEON") return redirect("/1NEON/" + query(request));
   if (uri.indexOf("/1NEON/") !== 0) {

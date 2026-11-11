@@ -26,8 +26,12 @@ The distribution also serves the 1NEON portal (neon1llc/neon1-1NEON):
 
 The portal's origin domains come from SSM parameters `/1neon/prod/app_bucket_domain` and `/1neon/prod/api_domain`, which the 1NEON stack publishes. Apply that stack before this one.
 
+## MTA-STS host
+
+`mta-sts.neon1.tech` is an alias on the same distribution, covered by the wildcard certificate. Both routers send every path on it except `/.well-known/mta-sts.txt` to the apex, so it serves the MTA-STS policy (from neon1-site) and nothing else. The `_mta-sts` record that versions the policy is in `dns/`.
+
 ## Response headers
 
-The site (`neon1-site-headers`) and the portal (`neon1-1neon-headers`) each send a Content Security Policy, two-year HSTS with subdomains, `nosniff`, `DENY` framing, a strict referrer policy, and a Permissions-Policy that turns off device and payment access. The HSTS and Permissions-Policy values are shared locals, because HSTS applies to the whole host. The site's policy allows only same-origin scripts, styles, fonts, and connections, and `data:` images, so neon1-site keeps no inline scripts or styles.
+The site (`neon1-site-headers`) and the portal (`neon1-1neon-headers`) each send a Content Security Policy, two-year HSTS with subdomains and preload (neon1.tech is on browsers' preload lists, so every subdomain must keep serving HTTPS), `nosniff`, `DENY` framing, a strict referrer policy, and a Permissions-Policy that turns off device and payment access. The HSTS and Permissions-Policy values are shared locals, because HSTS applies to the whole host. The site's policy allows only same-origin scripts, styles, fonts, and connections, and `data:` images, so neon1-site keeps no inline scripts or styles.
 
 The bucket policy also lets CloudFront list the bucket, so a missing file comes back as 404 rather than 403. Query strings aren't forwarded to S3, so a listing can't be requested through the CDN.

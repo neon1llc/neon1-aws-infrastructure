@@ -1,7 +1,15 @@
-# dns/main.tf - Zone-wide records no app stack owns: the SOA serial, CAA, and the apex mail records
-# (Google Workspace MX, SPF, DKIM, DMARC, TLS reporting, and BIMI). The mail records were created by
+# dns/main.tf - Zone-wide settings no app stack owns: DNSSEC signing and its alarms, the SOA serial,
+# CAA, and the apex mail records (Google Workspace MX, SPF, DKIM, DMARC, MTA-STS, TLS reporting, and BIMI). The mail records were created by
 # hand when Workspace went live; allow_overwrite takes them over in place. 1NEON's own sending
 # subdomain (notify.neon1.tech) is managed in neon1-1NEON, and the site's aliases in site/.
+
+
+# The account this runs in, for the alerts topic's ARN
+data "aws_caller_identity" "current" {}
+
+locals {
+  alerts_topic_arn = "arn:aws:sns:us-east-1:${data.aws_caller_identity.current.account_id}:${var.alerts_topic_name}"
+}
 
 
 # --- SOA: Route 53's own record, with a dated serial ---
@@ -119,6 +127,21 @@ resource "aws_route53_record" "dmarc" {
 }
 
 
+# --- MTA-STS: senders must use verified TLS to our MX (RFC 8461) ---
+# The policy file is neon1-site's .well-known/mta-sts.txt, served at mta-sts.neon1.tech by the site
+# stack. Change mta_sts_id whenever that file changes, or senders keep the policy they cached
+
+
+resource "aws_route53_record" "mta_sts" {
+  zone_id         = var.zone_id
+  name            = "_mta-sts.${var.domain}"
+  type            = "TXT"
+  ttl             = 3600
+  records         = ["v=STSv1; id=${var.mta_sts_id}"]
+  allow_overwrite = true
+}
+
+
 # --- TLS reporting: receivers send daily reports of TLS failures delivering to our MX ---
 
 
@@ -146,4 +169,83 @@ resource "aws_route53_record" "bimi" {
   ttl             = 3600
   records         = ["v=BIMI1; l=${var.bimi_logo_url}; a=${var.bimi_authority_url}"]
   allow_overwrite = true
+}
+
+
+# --- DNSSEC: Route 53 signs the zone with a key-signing key held in KMS ---
+# Turned on by hand on 2026-11-11 and imported here. The KMS key (alias/neon1-tech-dnssec, ECC P-256,
+# in us-east-1 as Route 53 requires) stays outside Terraform; its policy lets Route 53's DNSSEC service
+# sign with it. Never disable or delete that key, or this signing key, while the registrar holds the
+# DS record: validating resolvers would then reject every neon1.tech answer
+
+
+data "aws_kms_alias" "dnssec" {
+  name = "alias/neon1-tech-dnssec"
+}
+
+
+import {
+  to = aws_route53_key_signing_key.ksk
+  id = "${var.zone_id},neon1_tech_ksk"
+}
+
+resource "aws_route53_key_signing_key" "ksk" {
+  hosted_zone_id             = var.zone_id
+  key_management_service_arn = data.aws_kms_alias.dnssec.target_key_arn
+  name                       = "neon1_tech_ksk"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+
+import {
+  to = aws_route53_hosted_zone_dnssec.zone
+  id = var.zone_id
+}
+
+resource "aws_route53_hosted_zone_dnssec" "zone" {
+  hosted_zone_id = aws_route53_key_signing_key.ksk.hosted_zone_id
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+
+# Two alarms, the ones AWS recommends: signing failed, or the key needs attention (KMS key disabled,
+# its policy changed, or similar). Either one, left alone, ends with neon1.tech failing to resolve.
+# They go to 1NEON's alerts topic, whose email subscription is already confirmed
+
+
+locals {
+  dnssec_alarms = {
+    internal-failure = {
+      metric = "DNSSECInternalFailure"
+      what   = "Route 53 could not sign neon1.tech. Validating resolvers may stop answering for the domain."
+    }
+    ksk-needs-action = {
+      metric = "DNSSECKeySigningKeysNeedingAction"
+      what   = "neon1.tech's DNSSEC signing key needs attention (is its KMS key disabled or its policy changed?)."
+    }
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "dnssec" {
+  for_each = local.dnssec_alarms
+
+  alarm_name          = "neon1-dns-dnssec-${each.key}"
+  alarm_description   = each.value.what
+  namespace           = "AWS/Route53"
+  metric_name         = each.value.metric
+  dimensions          = { HostedZoneId = var.zone_id }
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [local.alerts_topic_arn]
+  ok_actions          = [local.alerts_topic_arn]
 }
