@@ -4,7 +4,7 @@ Records for the neon1.tech zone that no app stack owns. The zone itself is creat
 
 | Record | Value | Why |
 |---|---|---|
-| SOA | Route 53's default with a dated serial (`soa_serial`) | Route 53 leaves the serial at 1, which checkers flag |
+| SOA | A dated serial (`soa_serial`), RFC 1912 refresh and retry, one-hour negative caching | Route 53 leaves the serial at 1 and caches a missing name for a day |
 | CAA | `amazon.com`, `amazontrust.com`, `awstrust.com`, `amazonaws.com`; iodef to security@ | Every certificate comes from ACM, so no other CA may issue one |
 | MX | `1 smtp.google.com.` | Google Workspace receives mail |
 | TXT (apex) | SPF for Google and SES, and Google's verification token | They share one record set |

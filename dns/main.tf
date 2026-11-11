@@ -6,7 +6,9 @@
 
 # --- SOA: Route 53's own record, with a dated serial ---
 # Route 53 starts every zone at serial 1 and never changes it. Checkers expect YYYYMMDDnn, so this
-# sets one; bump it when the zone changes in a way worth marking. The rest is Route 53's default
+# sets one; bump it when the zone changes in a way worth marking. Refresh and retry follow RFC 1912
+# (Route 53 has no secondaries, so they only quiet checkers), and failed lookups are cached an hour
+# rather than Route 53's default day, so a newly added record shows up sooner
 
 
 resource "aws_route53_record" "soa" {
@@ -14,7 +16,7 @@ resource "aws_route53_record" "soa" {
   name            = var.domain
   type            = "SOA"
   ttl             = 900
-  records         = ["${var.primary_name_server} awsdns-hostmaster.amazon.com. ${var.soa_serial} 7200 900 1209600 86400"]
+  records         = ["${var.primary_name_server} awsdns-hostmaster.amazon.com. ${var.soa_serial} 14400 3600 1209600 3600"]
   allow_overwrite = true
 
   # A zone can't lose its SOA; destroying this stack must leave it behind
