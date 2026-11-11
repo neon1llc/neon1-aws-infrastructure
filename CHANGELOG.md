@@ -8,7 +8,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 - A release switch for neon1.tech: the `neon1-site-release` key value store names the live release folder, and the site router serves pages, scripts, and styles from `releases/<id>/`, so a deploy moves every visitor to a new release at once. Fonts, media, and `.well-known` stay shared at the bucket's top. With no release set, the top level serves as before.
 
 ### Changed
-- The site deploy role may read and switch the live release; the Terraform role may manage the release store.
+- The site deploy role may read and switch the live release; the Terraform role may manage and tag the release store.
 
 ## v0.3.0 - 2026-11-11
 
