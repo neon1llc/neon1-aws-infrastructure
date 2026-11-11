@@ -56,6 +56,8 @@ jobs:
         include:
           - stack: site
             apply: true
+          - stack: dns
+            apply: true
           - stack: github
             apply: false
 

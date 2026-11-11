@@ -120,9 +120,9 @@ data "aws_iam_policy_document" "terraform" {
   }
 
   statement {
-    sid       = "StateSite"
+    sid       = "StateApplied"
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-    resources = ["${local.state_arn}/site/*"]
+    resources = ["${local.state_arn}/site/*", "${local.state_arn}/dns/*"]
   }
 
   statement {
@@ -232,8 +232,8 @@ data "aws_iam_policy_document" "terraform" {
     resources = ["arn:aws:route53:::hostedzone/${var.zone_id}"]
   }
 
-  # Site aliases and certificate validation only. Mail records stay out of
-  # reach until a stack manages them
+  # Site aliases and certificate validation only. The dns stack's records are
+  # the DnsRecords statement below
   statement {
     sid       = "ZoneRecords"
     actions   = ["route53:ChangeResourceRecordSets"]
@@ -243,6 +243,31 @@ data "aws_iam_policy_document" "terraform" {
       test     = "ForAllValues:StringEquals"
       variable = "route53:ChangeResourceRecordSetsRecordTypes"
       values   = ["A", "AAAA", "CNAME"]
+    }
+  }
+
+  # The dns stack: the SOA, CAA, and apex mail records, on these names only
+  statement {
+    sid       = "DnsRecords"
+    actions   = ["route53:ChangeResourceRecordSets"]
+    resources = ["arn:aws:route53:::hostedzone/${var.zone_id}"]
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "route53:ChangeResourceRecordSetsRecordTypes"
+      values   = ["SOA", "CAA", "MX", "TXT"]
+    }
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "route53:ChangeResourceRecordSetsNormalizedRecordNames"
+      values = [
+        "neon1.tech",
+        "google._domainkey.neon1.tech",
+        "_dmarc.neon1.tech",
+        "_smtp._tls.neon1.tech",
+        "default._bimi.neon1.tech",
+      ]
     }
   }
 
