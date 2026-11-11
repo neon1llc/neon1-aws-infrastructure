@@ -218,6 +218,9 @@ data "aws_iam_policy_document" "terraform" {
       "cloudfront:DescribeKeyValueStore",
       "cloudfront:UpdateKeyValueStore",
       "cloudfront:DeleteKeyValueStore",
+      # The provider's default tags are written on create
+      "cloudfront:TagResource",
+      "cloudfront:UntagResource",
     ]
     resources = ["arn:aws:cloudfront::${local.account}:key-value-store/*"]
   }
