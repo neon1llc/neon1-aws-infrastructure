@@ -323,9 +323,20 @@ resource "aws_route53_record" "alias" {
 resource "aws_cloudfront_function" "site_router" {
   name    = "neon1-site-router"
   runtime = "cloudfront-js-2.0"
-  comment = "neon1.tech: www to the apex; unknown paths get a 404 page"
+  comment = "neon1.tech: www to the apex; unknown paths get a 404 page; pages from the live release"
   publish = true
   code    = file("${path.module}/functions/site-router.js")
+
+  key_value_store_associations = [aws_cloudfront_key_value_store.site_release.arn]
+}
+
+
+# Which release folder the site serves. neon1-site's deploy uploads a release whole under
+# releases/<id>/ and then sets "release" here, so every visitor moves to it at once; "history"
+# lists recent releases for rollback. Terraform owns the store, never its keys
+resource "aws_cloudfront_key_value_store" "site_release" {
+  name    = "neon1-site-release"
+  comment = "neon1.tech live release folder, set by neon1-site's deploy"
 }
 
 
