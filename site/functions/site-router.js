@@ -1,5 +1,6 @@
 // site/functions/site-router.js - CloudFront Function for the site: www redirects to the apex,
-// the home page and real files pass through, and any other path gets a not-found page with a 404.
+// mta-sts serves only its policy file, the home page and real files pass through, and any other
+// path gets a not-found page with a 404.
 
 
 // The not-found page: its design and rain come from the site's shared files
@@ -33,11 +34,14 @@ function toApex(request) {
 }
 
 
-// www goes to the apex; "/" and anything with a file extension go to S3; /faqs redirects; every other path is not found
+// www (and mta-sts, beyond its policy) goes to the apex; "/" and anything with a file extension go to S3; /faqs redirects; every other path is not found
 function handler(event) {
   var request = event.request;
   var uri = request.uri;
-  if (request.headers.host && request.headers.host.value === "www.neon1.tech") return toApex(request);
+  var host = request.headers.host ? request.headers.host.value : "";
+  if (host === "www.neon1.tech") return toApex(request);
+  // mta-sts.neon1.tech exists only for mail servers fetching the MTA-STS policy (RFC 8461)
+  if (host === "mta-sts.neon1.tech") return uri === "/.well-known/mta-sts.txt" ? request : toApex(request);
   if (uri === "/" || uri.lastIndexOf(".") > uri.lastIndexOf("/")) return request;
   // neon1.tech/faqs, like neon1.tech/1NEON/faqs: the full questions live in the knowledge center
   if (uri === "/faqs" || uri === "/faqs/") return redirect("/knowledge/faq/working-with-neon1/");

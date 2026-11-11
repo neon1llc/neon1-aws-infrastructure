@@ -75,3 +75,10 @@ test("knowledge center folders serve their index page, and gain a slash when the
   assert.equal(site(event("/knowledgebase")).statusCode, 404);
   assert.equal(site(event("/knowledge/x/", { host: "www.neon1.tech" })).headers.location.value, "https://neon1.tech/knowledge/x/");
 });
+
+test("mta-sts serves only its policy file and sends everything else to the apex", () => {
+  assert.equal(site(event("/.well-known/mta-sts.txt", { host: "mta-sts.neon1.tech" })).uri, "/.well-known/mta-sts.txt");
+  assert.equal(site(event("/", { host: "mta-sts.neon1.tech" })).headers.location.value, "https://neon1.tech/");
+  assert.equal(site(event("/.well-known/security.txt", { host: "mta-sts.neon1.tech" })).headers.location.value, "https://neon1.tech/.well-known/security.txt");
+  assert.equal(portal(event("/1NEON/me", { host: "mta-sts.neon1.tech" })).headers.location.value, "https://neon1.tech/1NEON/me");
+});

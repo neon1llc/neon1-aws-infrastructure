@@ -65,6 +65,27 @@ variable "dmarc_policy" {
 }
 
 
+# MTA-STS policy version: change it (a date is fine) whenever neon1-site's mta-sts.txt changes
+variable "mta_sts_id" {
+  description = "MTA-STS policy id, 1 to 32 letters and digits."
+  type        = string
+  default     = "20261111"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9]{1,32}$", var.mta_sts_id))
+    error_message = "mta_sts_id must be 1 to 32 letters and digits."
+  }
+}
+
+
+# Where DNSSEC alarms go: 1NEON's alerts topic, in this account and region
+variable "alerts_topic_name" {
+  description = "Existing SNS topic that receives the DNSSEC alarms."
+  type        = string
+  default     = "1neon-prod-alerts"
+}
+
+
 # BIMI logo (SVG Tiny PS over HTTPS) and, once bought, its mark certificate. Empty leaves BIMI off
 variable "bimi_logo_url" {
   description = "HTTPS URL of the SVG Tiny PS brand logo, or empty for no BIMI record."

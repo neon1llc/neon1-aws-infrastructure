@@ -2,6 +2,16 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
+## v0.3.0 - 2026-11-11
+
+### Added
+- DNSSEC: the zone's signing, turned on by hand, is imported into the dns stack, with alarms for a signing failure or a signing key that needs attention.
+- MTA-STS in testing mode: the `_mta-sts` record, and mta-sts.neon1.tech on the site's distribution, serving only the policy file.
+
+### Changed
+- HSTS on the site and the portal carries the preload directive, so neon1.tech can join browsers' preload lists.
+- The Terraform role may read DNSSEC signing and its KMS key, manage the dns stack's alarms, and change the `_mta-sts` record.
+
 ## v0.2.0 - 2026-11-11
 
 ### Added

@@ -10,8 +10,21 @@ Records for the neon1.tech zone that no app stack owns. The zone itself is creat
 | TXT (apex) | SPF for Google and SES, and Google's verification token | They share one record set |
 | `google._domainkey` | Workspace's DKIM public key | Workspace signs as `d=neon1.tech` |
 | `_dmarc` | `p=quarantine; sp=quarantine`, reports to dmarc@ | Mail that fails both aligned SPF and DKIM goes to spam |
+| `_mta-sts` | `v=STSv1; id=<mta_sts_id>` | Points senders at the MTA-STS policy, served at mta-sts.neon1.tech |
 | `_smtp._tls` | TLS-RPT reports to dmarc@ | Senders report TLS failures delivering to us |
 | `default._bimi` | `l=https://neon1.tech/bimi/neon1.svg`, no certificate yet | The brand logo, self-asserted until a VMC or CMC is bought |
+
+## DNSSEC
+
+Route 53 signs the zone with the key-signing key `neon1_tech_ksk`, held in the KMS key `alias/neon1-tech-dnssec` (ECC P-256, us-east-1, about $1 a month). Signing was turned on by hand on 2026-11-11. This stack imports the key-signing key and the zone's signing status, and both refuse to be destroyed. The KMS key and its policy stay outside Terraform.
+
+Signing does nothing for validation until the registrar publishes the DS record: key tag 20175, algorithm 13 (ECDSA P-256), digest type 2 (SHA-256), digest `DB8F9CB32EFBB0BD53222F25FE378A81FE787D9D4EF5D82FFBE40270760A3A99`. Once it does, disabling or deleting the KMS key or the signing key makes neon1.tech fail to resolve for validating resolvers. To turn DNSSEC off, remove the DS record at the registrar first and wait two days (the DS TTL) before disabling signing.
+
+Two alarms watch it, `neon1-dns-dnssec-internal-failure` and `neon1-dns-dnssec-ksk-needs-action`, and email through 1NEON's `1neon-prod-alerts` topic.
+
+## MTA-STS
+
+The policy is `.well-known/mta-sts.txt` in neon1-site, served only at `mta-sts.neon1.tech` (the site stack adds the host and its routing). It starts in `testing` mode, so a failure is only reported (through TLS-RPT), never enforced. After a couple of weeks of clean reports, change the file's mode to `enforce` and bump `mta_sts_id` here.
 
 ## DMARC
 
