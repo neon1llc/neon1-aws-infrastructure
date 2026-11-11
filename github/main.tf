@@ -58,7 +58,7 @@ data "aws_iam_policy_document" "trust" {
 }
 
 
-# --- Site deploy: sync the bucket and invalidate the distribution, nothing else ---
+# --- Site deploy: sync the bucket, switch the live release, and invalidate the distribution, nothing else ---
 
 
 resource "aws_iam_role" "site_deploy" {
@@ -68,7 +68,7 @@ resource "aws_iam_role" "site_deploy" {
 }
 
 
-# List and write the site bucket, and invalidate the distribution
+# List and write the site bucket, switch the live release, and invalidate the distribution
 data "aws_iam_policy_document" "site_deploy" {
   statement {
     sid       = "ListSite"
@@ -86,6 +86,21 @@ data "aws_iam_policy_document" "site_deploy" {
     sid       = "Invalidate"
     actions   = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
     resources = ["arn:aws:cloudfront::${local.account}:distribution/${var.site_distribution_id}"]
+  }
+
+  # Find the release store by name and switch the live release (site stack's neon1-site-release).
+  # The store's ID is generated, so the grant names the account's stores; the site's is the only one
+  statement {
+    sid = "SwitchRelease"
+    actions = [
+      "cloudfront:DescribeKeyValueStore",
+      "cloudfront-keyvaluestore:DescribeKeyValueStore",
+      "cloudfront-keyvaluestore:GetKey",
+      "cloudfront-keyvaluestore:ListKeys",
+      "cloudfront-keyvaluestore:PutKey",
+      "cloudfront-keyvaluestore:UpdateKeys",
+    ]
+    resources = ["arn:aws:cloudfront::${local.account}:key-value-store/*"]
   }
 }
 
@@ -193,6 +208,18 @@ data "aws_iam_policy_document" "terraform" {
       "arn:aws:cloudfront::${local.account}:response-headers-policy/*",
       "arn:aws:cloudfront::${local.account}:origin-request-policy/*",
     ]
+  }
+
+  # The site's release store (the live release's name; the site deploy writes its keys, not Terraform)
+  statement {
+    sid = "CloudFrontReleaseStore"
+    actions = [
+      "cloudfront:CreateKeyValueStore",
+      "cloudfront:DescribeKeyValueStore",
+      "cloudfront:UpdateKeyValueStore",
+      "cloudfront:DeleteKeyValueStore",
+    ]
+    resources = ["arn:aws:cloudfront::${local.account}:key-value-store/*"]
   }
 
   # The 1NEON and neon1-chat stacks publish their origins (and the chat's edge secret) here
