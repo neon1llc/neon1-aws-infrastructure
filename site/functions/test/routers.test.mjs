@@ -79,6 +79,11 @@ test("knowledge center folders serve their index page, and gain a slash when the
   assert.equal(bare.headers.location.value, "/knowledge/?q=backup");
   assert.equal((await site(event("/knowledge/forms/intake"))).headers.location.value, "/knowledge/forms/intake/");
   assert.equal((await site(event("/knowledgebase"))).statusCode, 404);
+  // A shelf's folder has no page of its own: it goes to that shelf on the front page
+  const shelf = await site(event("/knowledge/faq/"));
+  assert.equal(shelf.statusCode, 301);
+  assert.equal(shelf.headers.location.value, "/knowledge/#faq");
+  assert.equal((await site(event("/knowledge/faq"))).headers.location.value, "/knowledge/faq/");
   assert.equal((await site(event("/knowledge/x/", { host: "www.neon1.tech" }))).headers.location.value, "https://neon1.tech/knowledge/x/");
 });
 
