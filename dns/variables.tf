@@ -86,6 +86,14 @@ variable "alerts_topic_name" {
 }
 
 
+# GitHub's domain-verification code for the neon1llc organization
+variable "github_org_verification" {
+  description = "Verification code GitHub gave for _gh-neon1llc-o.neon1.tech."
+  type        = string
+  default     = "e4971e3b3e"
+}
+
+
 # BIMI logo (SVG Tiny PS over HTTPS) and, once bought, its mark certificate. Empty leaves BIMI off
 variable "bimi_logo_url" {
   description = "HTTPS URL of the SVG Tiny PS brand logo, or empty for no BIMI record."

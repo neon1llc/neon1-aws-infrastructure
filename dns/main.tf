@@ -155,6 +155,20 @@ resource "aws_route53_record" "tls_rpt" {
 }
 
 
+# --- GitHub: proves the neon1llc organization owns neon1.tech (org settings > Verified domains) ---
+# The code only matters until GitHub verifies it; GitHub rechecks it, so the record stays
+
+
+resource "aws_route53_record" "github_org" {
+  zone_id         = var.zone_id
+  name            = "_gh-neon1llc-o.${var.domain}"
+  type            = "TXT"
+  ttl             = 300
+  records         = [var.github_org_verification]
+  allow_overwrite = true
+}
+
+
 # --- BIMI: the brand logo some inboxes show beside our mail ---
 # Receivers only honor BIMI under an enforcing DMARC. Gmail and Apple Mail also need a mark
 # certificate (a=); without one, the logo is self-asserted and only some providers show it

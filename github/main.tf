@@ -296,6 +296,7 @@ data "aws_iam_policy_document" "terraform" {
         "google._domainkey.neon1.tech",
         "_dmarc.neon1.tech",
         "_mta-sts.neon1.tech",
+        "_gh-neon1llc-o.neon1.tech",
         "_smtp._tls.neon1.tech",
         "default._bimi.neon1.tech",
       ]

@@ -2,6 +2,11 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
+## v0.5.1 - 2026-11-12
+
+### Added
+- The `_gh-neon1llc-o` record, so GitHub can verify that the neon1llc organization owns neon1.tech.
+
 ## v0.5.0 - 2026-11-12
 
 ### Added
