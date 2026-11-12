@@ -58,7 +58,7 @@ function toApex(request) {
 }
 
 
-// www (and mta-sts, beyond its policy) goes to the apex; "/" and anything with a file extension go to S3; /faqs redirects; every other path is not found
+// www (and mta-sts, beyond its policy) goes to the apex; "/" and anything with a file extension go to S3; /faqs redirects; knowledge and blog folders serve their pages; every other path is not found
 async function handler(event) {
   var request = event.request;
   var uri = request.uri;
@@ -69,9 +69,9 @@ async function handler(event) {
   if (uri === "/" || uri.lastIndexOf(".") > uri.lastIndexOf("/")) return inRelease(request);
   // neon1.tech/faqs, like neon1.tech/1NEON/faqs: the full questions live in the knowledge center
   if (uri === "/faqs" || uri === "/faqs/") return redirect("/knowledge/faq/working-with-neon1/");
-  // The knowledge center (written by neon1-site's scripts/knowledge.mjs) is folders of index.html pages:
-  // a folder path serves its index.html, and the same path without its final slash gets one
-  if (uri === "/knowledge" || uri.indexOf("/knowledge/") === 0) {
+  // The knowledge center and the blog (written by neon1-site's scripts/knowledge.mjs and scripts/blog.mjs) are
+  // folders of index.html pages: a folder path serves its index.html, and the same path without its final slash gets one
+  if (uri === "/knowledge" || uri.indexOf("/knowledge/") === 0 || uri === "/blog" || uri.indexOf("/blog/") === 0) {
     if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
     request.uri = uri + "index.html";
     return inRelease(request);
