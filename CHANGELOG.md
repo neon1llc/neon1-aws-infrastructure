@@ -2,6 +2,11 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
+## v0.6.0 - 2026-11-12
+
+### Changed
+- 1NEON's function boundary lets its API read Stripe's keys from SecureString parameters under /1neon/ (decrypted only through SSM) and set the retention date on locked copies of signed and billing records.
+
 ## v0.5.2 - 2026-11-12
 
 ### Fixed
