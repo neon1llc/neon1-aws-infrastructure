@@ -73,6 +73,10 @@ async function handler(event) {
   // folders of index.html pages: a folder path serves its index.html, and the same path without its final slash gets one
   if (uri === "/knowledge" || uri.indexOf("/knowledge/") === 0 || uri === "/blog" || uri.indexOf("/blog/") === 0) {
     if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
+    // A shelf's own folder (/knowledge/faq/, a link trimmed back by hand) has no page: its shelf
+    // on the knowledge center's front page is the same list, so go there rather than to a bare 404
+    var shelf = /^\/knowledge\/([a-z0-9-]+)\/$/.exec(uri);
+    if (shelf) return redirect("/knowledge/#" + shelf[1]);
     request.uri = uri + "index.html";
     return inRelease(request);
   }
