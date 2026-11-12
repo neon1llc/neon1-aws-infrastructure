@@ -11,6 +11,7 @@ Records for the neon1.tech zone that no app stack owns. The zone itself is creat
 | `google._domainkey` | Workspace's DKIM public key | Workspace signs as `d=neon1.tech` |
 | `_dmarc` | `p=quarantine; sp=quarantine`, reports to dmarc@ | Mail that fails both aligned SPF and DKIM goes to spam |
 | `_mta-sts` | `v=STSv1; id=<mta_sts_id>` | Points senders at the MTA-STS policy, served at mta-sts.neon1.tech |
+| `_gh-neon1llc-o` | GitHub's verification code | Proves the neon1llc GitHub organization owns neon1.tech |
 | `_smtp._tls` | TLS-RPT reports to dmarc@ | Senders report TLS failures delivering to us |
 | `default._bimi` | `l=https://neon1.tech/bimi/neon1.svg`, no certificate yet | The brand logo, self-asserted until a VMC or CMC is bought |
 
