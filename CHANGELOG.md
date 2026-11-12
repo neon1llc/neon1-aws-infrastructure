@@ -2,6 +2,14 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
+## v0.5.2 - 2026-11-12
+
+### Fixed
+- A knowledge center shelf's address trimmed back by hand, such as neon1.tech/knowledge/faq/, goes to that shelf on the knowledge center's front page instead of a bare storage error.
+
+### Changed
+- HTTP/2 only is now the settled setting for neon1.tech rather than a test.
+
 ## v0.5.1 - 2026-11-12
 
 ### Added
