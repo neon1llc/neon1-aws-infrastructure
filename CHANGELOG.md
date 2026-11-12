@@ -2,6 +2,11 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
+## v0.5.0 - 2026-11-12
+
+### Added
+- neon1.tech/blog/ serves its folder pages the way the knowledge center does: a folder path serves its index page, and a path without its final slash gets one.
+
 ## v0.4.1 - 2026-11-12
 
 ### Changed
