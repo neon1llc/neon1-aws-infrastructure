@@ -169,7 +169,7 @@ resource "aws_cloudfront_distribution" "site" {
   price_class         = "PriceClass_100" # US/EU edges: cheapest tier that fits the audience
   aliases             = [var.domain, local.www, local.mta_sts]
   is_ipv6_enabled     = true
-  http_version        = "http2and3"
+  http_version        = "http2" # HTTP/3 off while testing whether it causes DuckDuckGo on iPhone to report "network connection was lost"
 
   # Marketing site: the private website bucket
   # The portal's app bucket, reached through the same origin access control
