@@ -125,7 +125,7 @@ test("without a valid release the bucket's top level serves, as before releases"
 
 import crypto from "node:crypto";
 
-const devStore = { gate: "k".repeat(40), release: "aaaaaaaaaaaa", "branch:feat-x": "bbbbbbbbbbbb" };
+const devStore = { session: "k".repeat(40), release: "aaaaaaaaaaaa", "branch:feat-x": "bbbbbbbbbbbb" };
 
 /** dev-router.js with its own fake store and Node's crypto standing in for CloudFront's */
 function loadDev() {
@@ -144,20 +144,18 @@ function devEvent(uri, { cookies = {}, qs = {} } = {}) {
   return { request: { uri, headers: { host: { value: "dev.neon1.tech" } }, querystring: qs, cookies: c } };
 }
 
-/** Sign in with the gate key and return the cookie it sets */
+/** The cookie dev-auth.mjs sets after a sign-in, signed with the store's session key */
 async function signIn() {
-  const r = await dev(devEvent("/__signin", { qs: { k: { value: devStore.gate } } }));
-  assert.equal(r.statusCode, 302);
-  assert.match(r.cookies.n1dev.attributes, /Max-Age=2592000/);
-  assert.match(r.cookies.n1dev.attributes, /HttpOnly/);
-  return r.cookies.n1dev.value;
+  const exp = Math.floor(Date.now() / 1000) + 2592000;
+  return exp + "." + crypto.createHmac("sha256", devStore.session).update("n1dev|" + exp).digest("hex");
 }
 
 test("dev: nothing is served without the cookie, and a wrong key or forged cookie stays closed", async () => {
   for (const uri of ["/", "/knowledge/", "/1NEON/", "/1NEON/api/me", "/chat/api/x", "/robots.txt"]) {
     assert.equal((await dev(devEvent(uri))).statusCode, 404, uri);
   }
-  assert.equal((await dev(devEvent("/__signin", { qs: { k: { value: "nope" } } }))).statusCode, 404);
+  // Sign-in runs on its own function; reaching this one with any link key is still a 404
+  assert.equal((await dev(devEvent("/__signin", { qs: { k: { value: devStore.session } } }))).statusCode, 404);
   const future = Math.floor(Date.now() / 1000) + 1000;
   assert.equal((await dev(devEvent("/", { cookies: { n1dev: `${future}.deadbeef` } }))).statusCode, 404);
 });
@@ -174,14 +172,16 @@ test("dev: a signed-in device reaches the site, the portal, and the APIs", async
 test("dev: an expired cookie, a changed key, or no key at all closes the gate", async () => {
   const n1dev = await signIn();
   const past = Math.floor(Date.now() / 1000) - 10;
-  const expired = past + "." + crypto.createHmac("sha256", devStore.gate).update("n1dev|" + past).digest("hex");
+  const expired = past + "." + crypto.createHmac("sha256", devStore.session).update("n1dev|" + past).digest("hex");
   assert.equal((await dev(devEvent("/", { cookies: { n1dev: expired } }))).statusCode, 404);
-  const old = devStore.gate;
-  devStore.gate = "z".repeat(40);
+  const old = devStore.session;
+  devStore.session = "z".repeat(40);
   assert.equal((await dev(devEvent("/", { cookies: { n1dev } }))).statusCode, 404);
-  devStore.gate = "short";
-  assert.equal((await dev(devEvent("/__signin", { qs: { k: { value: "short" } } }))).statusCode, 404);
-  devStore.gate = old;
+  devStore.session = "short";
+  const weak = Math.floor(Date.now() / 1000) + 100;
+  const short = weak + "." + crypto.createHmac("sha256", "short").update("n1dev|" + weak).digest("hex");
+  assert.equal((await dev(devEvent("/", { cookies: { n1dev: short } }))).statusCode, 404);
+  devStore.session = old;
 });
 
 test("dev: a branch preview cookie picks that branch's release, and falls back to dev's", async () => {

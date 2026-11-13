@@ -82,10 +82,9 @@ function portalHandler(event) {
 }
 var GATE = "n1dev";
 var PREVIEW = "n1preview";
-var THIRTY_DAYS = 2592000;
 var BRANCH = /^[a-z0-9][a-z0-9-]{0,39}$/;
-async function gateKey() {
-  try { return await kvs.get("gate"); } catch (e) { return ""; }
+async function sessionKey() {
+  try { return await kvs.get("session"); } catch (e) { return ""; }
 }
 function sign(key, exp) {
   return exp + "." + crypto.createHmac("sha256", key).update("n1dev|" + exp).digest("hex");
@@ -128,14 +127,9 @@ async function releaseKey(request) {
 async function handler(event) {
   var request = event.request;
   var uri = request.uri;
-  var key = await gateKey();
+  var key = await sessionKey();
   var now = Math.floor(Date.now() / 1000);
   if (key.length < 32) return closed();
-  if (uri === "/__signin") {
-    if (param(request, "k") !== key) return closed();
-    var exp = now + THIRTY_DAYS;
-    return home(GATE, sign(key, exp), "Max-Age=" + THIRTY_DAYS + "; HttpOnly; ");
-  }
   if (!signedIn(request, key, now)) return closed();
   if (uri === "/__signout") return home(GATE, "", "");
   if (uri === "/__preview") {
