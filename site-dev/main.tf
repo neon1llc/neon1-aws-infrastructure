@@ -1,6 +1,6 @@
 # site-dev/main.tf - dev.neon1.tech: a private copy of neon1.tech for looking at changes before they
 # ship. Its own bucket, distribution, release store, and one function (site/functions/dev-router.js)
-# that turns away anyone without the signed cookie its sign-in link sets. Nothing here is shared with
+# that turns away anyone without the signed cookie sign-in sets (sign-in.tf). Nothing here is shared with
 # the live site except the certificate, the hosted zone, and (read-only) the assistant's API.
 
 
@@ -146,9 +146,9 @@ data "aws_ssm_parameter" "portal" {
 # --- Edge: the release store and the gate ---
 
 
-# The dev release, branch previews ("branch:<name>"), and the gate key ("gate"). The deploy sets the
-# releases; the gate key is set by hand (neon1-site's make dev-gate) and never passes through
-# Terraform state. Terraform owns the store, never its keys
+# The dev release, branch previews ("branch:<name>"), and the cookie key ("session"). The deploy sets
+# the releases; the session key is set by hand (neon1-site's make dev-signout) and never passes
+# through Terraform state. Terraform owns the store, never its keys
 resource "aws_cloudfront_key_value_store" "dev" {
   name    = "neon1-site-dev"
   comment = "dev.neon1.tech release, branch previews, and gate key"
@@ -254,6 +254,27 @@ resource "aws_cloudfront_distribution" "dev" {
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.dev_router.arn
+    }
+  }
+
+  # Sign-in (sign-in.tf): the edge function answers every request itself, so the origin is never
+  # reached and nothing is cached. Listed first so no other pattern can take these paths
+  dynamic "ordered_cache_behavior" {
+    for_each = toset(["/__signin", "/__auth"])
+    content {
+      path_pattern               = ordered_cache_behavior.value
+      target_origin_id           = "s3-dev"
+      viewer_protocol_policy     = "https-only"
+      allowed_methods            = ["GET", "HEAD"]
+      cached_methods             = ["GET", "HEAD"]
+      cache_policy_id            = local.caching_disabled_policy
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.dev["site"].id
+
+      lambda_function_association {
+        event_type   = "viewer-request"
+        lambda_arn   = aws_lambda_function.dev_auth.qualified_arn
+        include_body = false
+      }
     }
   }
 
