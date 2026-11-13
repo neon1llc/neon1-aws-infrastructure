@@ -39,9 +39,9 @@ validate: ## Validate each stack without touching remote state
 dev-router: ## Rebuild site/functions/dev-router.js from the live routers and dev-gate.js
 	node site/functions/build-dev.mjs
 
-test: ## Run the CloudFront Function fixtures with Node, and check dev-router.js is current
+test: ## Run the CloudFront Function and dev sign-in fixtures with Node, and check dev-router.js is current
 	node site/functions/build-dev.mjs --check
-	node --test site/functions/test/routers.test.mjs
+	node --test site/functions/test/routers.test.mjs site/functions/test/dev-auth.test.mjs
 
 # CI always has Docker, so only a local run without either tool skips
 lint: ## Lint with tflint
