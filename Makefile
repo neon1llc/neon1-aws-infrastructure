@@ -16,7 +16,7 @@ GITLEAKS_IMAGE := ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79
 DOCKER_RUN     := docker run --rm -u "$$(id -u):$$(id -g)" -v "$(CURDIR):/src" -w /src
 
 .DEFAULT_GOAL := help
-.PHONY: help check fmt fmt-check validate test lint sec secrets plan apply stack account
+.PHONY: help check fmt fmt-check validate test lint sec secrets dev-router plan apply stack account
 
 
 ##@ Checks
@@ -36,7 +36,11 @@ validate: ## Validate each stack without touching remote state
 		terraform -chdir=$$s validate -no-color || exit 1; \
 	done
 
-test: ## Run the CloudFront Function fixtures with Node
+dev-router: ## Rebuild site/functions/dev-router.js from the live routers and dev-gate.js
+	node site/functions/build-dev.mjs
+
+test: ## Run the CloudFront Function fixtures with Node, and check dev-router.js is current
+	node site/functions/build-dev.mjs --check
 	node --test site/functions/test/routers.test.mjs
 
 # CI always has Docker, so only a local run without either tool skips
