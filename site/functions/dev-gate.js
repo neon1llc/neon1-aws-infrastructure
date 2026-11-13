@@ -2,9 +2,10 @@
 // joins it after site-router.js and portal-router.js (their handlers renamed siteHandler and
 // portalHandler) into dev-router.js, the one function every dev behavior runs.
 //
-// Nothing is served without a signed cookie. /__signin?k=<gate key> sets it for 30 days; the key
-// lives only in the dev store's "gate" key, so changing it signs every device out. Anyone without
-// the cookie gets a bare 404 that says nothing about what's here.
+// Nothing is served without a signed cookie. The sign-in function (dev-auth.mjs, Lambda@Edge on
+// /__signin and /__auth) sets it for 30 days after the secret link and a dev-access sign-in; it is
+// signed with the store's "session" key, so changing that key signs every device out. Anyone
+// without the cookie gets a bare 404 that says nothing about what's here.
 
 import crypto from 'crypto';
 
@@ -12,18 +13,17 @@ import crypto from 'crypto';
 // Cookie names and lifetime
 var GATE = "n1dev";
 var PREVIEW = "n1preview";
-var THIRTY_DAYS = 2592000;
 // Branch preview names, as the dev deploy writes them (lowercase, digits, and dashes)
 var BRANCH = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 
-// The gate key from the store, or "" (which keeps everything closed)
-async function gateKey() {
-  try { return await kvs.get("gate"); } catch (e) { return ""; }
+// The cookie-signing key from the store, or "" (which keeps everything closed)
+async function sessionKey() {
+  try { return await kvs.get("session"); } catch (e) { return ""; }
 }
 
 
-// A cookie value: expiry seconds and an HMAC over them with the gate key
+// A cookie value: expiry seconds and an HMAC over them with the session key (dev-auth.mjs signs alike)
 function sign(key, exp) {
   return exp + "." + crypto.createHmac("sha256", key).update("n1dev|" + exp).digest("hex");
 }
@@ -80,21 +80,14 @@ async function releaseKey(request) {
 }
 
 
-// Gate first, then the APIs pass straight through, /1NEON gets the portal's routing, and everything
+// Gate first (sign-in itself never reaches here: /__signin and /__auth run dev-auth.mjs), then the APIs pass straight through, /1NEON gets the portal's routing, and everything
 // else the site's, from the chosen release
 async function handler(event) {
   var request = event.request;
   var uri = request.uri;
-  var key = await gateKey();
+  var key = await sessionKey();
   var now = Math.floor(Date.now() / 1000);
   if (key.length < 32) return closed();
-
-  // Sign in: the link's key must match the store's exactly
-  if (uri === "/__signin") {
-    if (param(request, "k") !== key) return closed();
-    var exp = now + THIRTY_DAYS;
-    return home(GATE, sign(key, exp), "Max-Age=" + THIRTY_DAYS + "; HttpOnly; ");
-  }
   if (!signedIn(request, key, now)) return closed();
 
   // Sign out, and pick or drop a branch preview (a session cookie; /__preview alone goes back to dev)

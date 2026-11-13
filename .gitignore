@@ -25,3 +25,6 @@ tfplan
 
 # The account ID the Makefile checks credentials against; local to each machine
 .expected-account
+
+# Zips Terraform builds (site-dev sign-in function)
+**/.build/
