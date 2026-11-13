@@ -2,7 +2,7 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
-## Unreleased
+## v0.8.0 - 2026-11-13
 
 - dev.neon1.tech sign-in: the secret link starts a sign-in at the 1NEON dev pool (auth-dev.neon1.tech), and only members of its new dev-access group get the cookie, after a passkey or email code. A Lambda@Edge function (`site/functions/dev-auth.mjs`) runs on `/__signin` and `/__auth` only; every other request is still checked by the CloudFront Function alone. The link key and the cookie key are now separate, so a new link no longer signs devices out.
 
