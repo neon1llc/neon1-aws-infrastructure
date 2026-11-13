@@ -119,3 +119,80 @@ test("without a valid release the bucket's top level serves, as before releases"
   }
   store.release = "0123456789ab";
 });
+
+
+// --- dev.neon1.tech: dev-router.js, the gate in front of both routers ---
+
+import crypto from "node:crypto";
+
+const devStore = { gate: "k".repeat(40), release: "aaaaaaaaaaaa", "branch:feat-x": "bbbbbbbbbbbb" };
+
+/** dev-router.js with its own fake store and Node's crypto standing in for CloudFront's */
+function loadDev() {
+  const cf = { kvs: () => ({ get: async (key) => { const v = devStore[key]; if (v === undefined) throw new Error("not found"); return v; } }) };
+  const ctx = { cf, crypto };
+  const code = readFileSync(new URL("../dev-router.js", import.meta.url), "utf8").replace(/^import .*$/gm, "");
+  vm.runInNewContext(code, ctx);
+  return ctx.handler;
+}
+const dev = loadDev();
+
+/** A dev request with cookies (name -> value) */
+function devEvent(uri, { cookies = {}, qs = {} } = {}) {
+  const c = {};
+  for (const [k, v] of Object.entries(cookies)) c[k] = { value: v };
+  return { request: { uri, headers: { host: { value: "dev.neon1.tech" } }, querystring: qs, cookies: c } };
+}
+
+/** Sign in with the gate key and return the cookie it sets */
+async function signIn() {
+  const r = await dev(devEvent("/__signin", { qs: { k: { value: devStore.gate } } }));
+  assert.equal(r.statusCode, 302);
+  assert.match(r.cookies.n1dev.attributes, /Max-Age=2592000/);
+  assert.match(r.cookies.n1dev.attributes, /HttpOnly/);
+  return r.cookies.n1dev.value;
+}
+
+test("dev: nothing is served without the cookie, and a wrong key or forged cookie stays closed", async () => {
+  for (const uri of ["/", "/knowledge/", "/1NEON/", "/1NEON/api/me", "/chat/api/x", "/robots.txt"]) {
+    assert.equal((await dev(devEvent(uri))).statusCode, 404, uri);
+  }
+  assert.equal((await dev(devEvent("/__signin", { qs: { k: { value: "nope" } } }))).statusCode, 404);
+  const future = Math.floor(Date.now() / 1000) + 1000;
+  assert.equal((await dev(devEvent("/", { cookies: { n1dev: `${future}.deadbeef` } }))).statusCode, 404);
+});
+
+test("dev: a signed-in device reaches the site, the portal, and the APIs", async () => {
+  const n1dev = await signIn();
+  assert.equal((await dev(devEvent("/", { cookies: { n1dev } }))).uri, "/releases/aaaaaaaaaaaa/index.html");
+  assert.equal((await dev(devEvent("/blog/", { cookies: { n1dev } }))).uri, "/releases/aaaaaaaaaaaa/blog/index.html");
+  assert.equal((await dev(devEvent("/1NEON/o/acme", { cookies: { n1dev } }))).uri, "/1NEON/index.html");
+  assert.equal((await dev(devEvent("/1NEON/api/me", { cookies: { n1dev } }))).uri, "/1NEON/api/me");
+  assert.equal((await dev(devEvent("/chat/api/x", { cookies: { n1dev } }))).uri, "/chat/api/x");
+});
+
+test("dev: an expired cookie, a changed key, or no key at all closes the gate", async () => {
+  const n1dev = await signIn();
+  const past = Math.floor(Date.now() / 1000) - 10;
+  const expired = past + "." + crypto.createHmac("sha256", devStore.gate).update("n1dev|" + past).digest("hex");
+  assert.equal((await dev(devEvent("/", { cookies: { n1dev: expired } }))).statusCode, 404);
+  const old = devStore.gate;
+  devStore.gate = "z".repeat(40);
+  assert.equal((await dev(devEvent("/", { cookies: { n1dev } }))).statusCode, 404);
+  devStore.gate = "short";
+  assert.equal((await dev(devEvent("/__signin", { qs: { k: { value: "short" } } }))).statusCode, 404);
+  devStore.gate = old;
+});
+
+test("dev: a branch preview cookie picks that branch's release, and falls back to dev's", async () => {
+  const n1dev = await signIn();
+  const pick = await dev(devEvent("/__preview", { cookies: { n1dev }, qs: { b: { value: "feat-x" } } }));
+  assert.equal(pick.cookies.n1preview.value, "feat-x");
+  assert.equal((await dev(devEvent("/", { cookies: { n1dev, n1preview: "feat-x" } }))).uri, "/releases/bbbbbbbbbbbb/index.html");
+  assert.equal((await dev(devEvent("/", { cookies: { n1dev, n1preview: "gone" } }))).uri, "/releases/aaaaaaaaaaaa/index.html");
+  assert.equal((await dev(devEvent("/", { cookies: { n1dev, n1preview: "../x" } }))).uri, "/releases/aaaaaaaaaaaa/index.html");
+  const back = await dev(devEvent("/__preview", { cookies: { n1dev } }));
+  assert.match(back.cookies.n1preview.attributes, /Max-Age=0/);
+  const out = await dev(devEvent("/__signout", { cookies: { n1dev } }));
+  assert.match(out.cookies.n1dev.attributes, /Max-Age=0/);
+});

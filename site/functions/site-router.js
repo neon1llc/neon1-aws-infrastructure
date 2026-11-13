@@ -30,6 +30,9 @@ function query(request) {
 // The live release: the store's "release" key names a folder under releases/ in the bucket
 var kvs = cf.kvs();
 var RELEASE = /^[0-9a-f]{12}$/;
+// The key naming that folder. Always "release" here; dev.neon1.tech's router (dev-gate.js) points it
+// at a branch preview's key for one request
+var RELEASE_KEY = "release";
 
 // Shared at the bucket's top, not per release: fonts and media never change at a path (neon1-site's
 // manifest check), and .well-known is read by mail servers and scanners
@@ -42,7 +45,7 @@ function shared(uri) {
 async function inRelease(request) {
   if (shared(request.uri)) return request;
   var id = "";
-  try { id = await kvs.get("release"); } catch (e) { id = ""; }
+  try { id = await kvs.get(RELEASE_KEY); } catch (e) { id = ""; }
   if (!RELEASE.test(id)) return request;
   request.uri = "/releases/" + id + (request.uri === "/" ? "/index.html" : request.uri);
   return request;

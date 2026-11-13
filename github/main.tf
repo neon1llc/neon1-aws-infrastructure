@@ -352,6 +352,13 @@ data "aws_iam_policy_document" "terraform" {
     ]
   }
 
+  # What site-dev publishes for this stack's dev roles (dev.tf), read so CI can plan them
+  statement {
+    sid       = "DevParamsRead"
+    actions   = ["ssm:GetParameter", "ssm:GetParameters"]
+    resources = ["arn:aws:ssm:us-east-1:${local.account}:parameter/neon1-site/dev/*"]
+  }
+
   # The permission boundaries this stack defines, read-only, so CI can plan them too
   statement {
     sid       = "BoundaryRead"
