@@ -2,7 +2,7 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
-## [Unreleased]
+## v0.8.1 - 2026-11-15
 
 - Shorter, plainer wording in the READMEs.
 
