@@ -29,7 +29,7 @@ locals {
     "frame-ancestors 'none'",
   ]
   csp = {
-    site   = join("; ", concat(local.csp_common, ["connect-src 'self'", "upgrade-insecure-requests"]))
+    site = join("; ", concat(local.csp_common, ["connect-src 'self'", "upgrade-insecure-requests"]))
     # The portal also loads Cloudflare Turnstile, the bot check on its sign-up form (script and its frame)
     portal = join("; ", concat(
       [for d in local.csp_common : d == "script-src 'self'" ? "script-src 'self' https://challenges.cloudflare.com" : d],
