@@ -25,6 +25,8 @@ make apply STACK=site      # applies exactly that plan
 
 Pushing to `main` runs the checks, then plans and applies `site` and `dns` with the role from the repository variable `AWS_TERRAFORM_ROLE_ARN`. CI only plans `github`, because that role can't change IAM. Apply `github` by hand, as described in [github/README.md](github/README.md). A new stack needs a line in the workflow matrix and access in that role's policy.
 
+Changes move through neon1's four [release levels](https://github.com/neon1llc/neon1-corpus/blob/main/corpus/standards/versioning.md#release-levels): Implemented, Verified, Released, and Qualified. Every stack's plan or apply passing and the tag mark Released. A plan that replaces or destroys a resource is read before it is applied, and Qualified needs a tested recovery, such as restoring neon1.tech from this repository.
+
 
 ## How the four repositories fit together
 
