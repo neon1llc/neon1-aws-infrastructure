@@ -2,6 +2,10 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
+## Unreleased
+
+- 1NEON's Terraform role may manage API Gateway access-log delivery, so a change to the API's stage (the sign-up route's throttle) can apply. The 1NEON v0.13.0 deploy stopped there without it. Apply the github stack by hand before 1NEON restores the throttle.
+
 ## v0.9.0 - 2026-11-15
 
 - The 1NEON portal's content security policy lets Cloudflare Turnstile (`https://challenges.cloudflare.com`) load its script and frame, for the bot check on the portal's new sign-up form. On dev and production; the marketing site's policy is unchanged.
