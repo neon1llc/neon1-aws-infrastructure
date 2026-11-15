@@ -231,6 +231,17 @@ data "aws_iam_policy_document" "portal_terraform" {
     resources = ["arn:aws:logs:us-east-1:${local.account}:log-group:/aws/lambda/${local.portal_prefix}-*", "arn:aws:logs:us-east-1:${local.account}:log-group:/aws/apigateway/${local.portal_prefix}*"]
   }
 
+  # API Gateway access logs: any change to the API's stage (such as a route's throttle) re-checks the
+  # log delivery, and CloudWatch Logs authorizes delivery only on "*"
+  statement {
+    sid = "ApiLogDelivery"
+    actions = [
+      "logs:CreateLogDelivery", "logs:GetLogDelivery", "logs:UpdateLogDelivery", "logs:DeleteLogDelivery", "logs:ListLogDeliveries",
+      "logs:PutResourcePolicy", "logs:DescribeResourcePolicies",
+    ]
+    resources = ["*"]
+  }
+
   # Alarm topic and alarms
   statement {
     sid       = "Alerts"
