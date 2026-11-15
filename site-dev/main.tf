@@ -30,7 +30,11 @@ locals {
   ]
   csp = {
     site   = join("; ", concat(local.csp_common, ["connect-src 'self'", "upgrade-insecure-requests"]))
-    portal = join("; ", concat(local.csp_common, ["connect-src 'self' https://neon1-1neon-docs-dev.s3.us-east-1.amazonaws.com"]))
+    # The portal also loads Cloudflare Turnstile, the bot check on its sign-up form (script and its frame)
+    portal = join("; ", concat(
+      [for d in local.csp_common : d == "script-src 'self'" ? "script-src 'self' https://challenges.cloudflare.com" : d],
+      ["frame-src https://challenges.cloudflare.com", "connect-src 'self' https://neon1-1neon-docs-dev.s3.us-east-1.amazonaws.com"],
+    ))
   }
 }
 
