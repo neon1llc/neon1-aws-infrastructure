@@ -213,10 +213,11 @@ data "aws_iam_policy_document" "boundary_portal_dev" {
     }
   }
 
+  # Mail from notify.neon1.tech; neon1.tech too, since SES checks verified recipients' identities
   statement {
     sid       = "Mail"
     actions   = ["ses:SendEmail", "ses:SendRawEmail"]
-    resources = ["arn:aws:ses:us-east-1:${local.account}:identity/notify.neon1.tech", "arn:aws:ses:us-east-1:${local.account}:configuration-set/${local.portal_dev}"]
+    resources = ["arn:aws:ses:us-east-1:${local.account}:identity/notify.neon1.tech", "arn:aws:ses:us-east-1:${local.account}:identity/neon1.tech", "arn:aws:ses:us-east-1:${local.account}:identity/*@neon1.tech", "arn:aws:ses:us-east-1:${local.account}:configuration-set/${local.portal_dev}"]
   }
 
   statement {

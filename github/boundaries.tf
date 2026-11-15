@@ -66,11 +66,12 @@ data "aws_iam_policy_document" "boundary_portal" {
     resources = ["arn:aws:cognito-idp:us-east-1:${local.account}:userpool/${var.portal_user_pool_id}"]
   }
 
-  # Mail from notify.neon1.tech only
+  # Mail from notify.neon1.tech only. SES also checks a recipient's identity when it's verified here,
+  # so mail to @neon1.tech (the operators) needs neon1.tech and its address identities as well
   statement {
     sid       = "Mail"
     actions   = ["ses:SendEmail", "ses:SendRawEmail"]
-    resources = ["arn:aws:ses:us-east-1:${local.account}:identity/notify.neon1.tech", "arn:aws:ses:us-east-1:${local.account}:configuration-set/${local.portal_prefix}"]
+    resources = ["arn:aws:ses:us-east-1:${local.account}:identity/notify.neon1.tech", "arn:aws:ses:us-east-1:${local.account}:identity/neon1.tech", "arn:aws:ses:us-east-1:${local.account}:identity/*@neon1.tech", "arn:aws:ses:us-east-1:${local.account}:configuration-set/${local.portal_prefix}"]
   }
 
   # Texts from the account's numbers (only 1NEON has any)
