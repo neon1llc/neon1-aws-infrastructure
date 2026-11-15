@@ -40,7 +40,6 @@ The SSM parameters are the shared contract. 1NEON publishes `app_bucket_domain` 
 
 Manual steps:
 
-- Applying `github`, since its role can't change IAM.
 - Confirming each alarm email subscription once from the inbox.
 - Rotating the origin secret, described in neon1-chat's README.
 

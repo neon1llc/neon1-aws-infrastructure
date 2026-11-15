@@ -2,10 +2,12 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
-## Unreleased
+## v0.10.0 - 2026-11-15
 
-- The 1NEON boundaries (production and dev) let the portal send mail to @neon1.tech addresses. SES also checks a recipient's identity when it's verified in the account, so notifications to the operators were refused. Apply the `github` stack before the matching 1NEON change.
-- 1NEON's Terraform role may manage API Gateway access-log delivery, so a change to the API's stage (the sign-up route's throttle) can apply. The 1NEON v0.13.0 deploy stopped there without it. Apply the github stack by hand before 1NEON restores the throttle.
+- 1NEON's Terraform role may manage API Gateway access-log delivery, so a change to the API's stage (the sign-up route's throttle) can apply. The 1NEON v0.13.0 deploy stopped there without it.
+- The 1NEON boundaries (production and dev) let the portal send mail to @neon1.tech addresses. SES also checks a recipient's identity when it's verified in the account, so notifications to the operators were refused.
+- Each release's changelog entry is published as its GitHub release notes.
+- Cut wording that repeats a table, list, or linked page.
 
 ## v0.9.0 - 2026-11-15
 
