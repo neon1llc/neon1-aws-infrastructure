@@ -412,7 +412,9 @@ resource "aws_cloudfront_response_headers_policy" "portal" {
     content_security_policy {
       content_security_policy = join("; ", [
         "default-src 'self'",
-        "script-src 'self'",
+        # Cloudflare Turnstile, the bot check on the sign-up form, loads its script and a small frame
+        "script-src 'self' https://challenges.cloudflare.com",
+        "frame-src https://challenges.cloudflare.com",
         "style-src 'self'",
         "img-src 'self' data:",
         "font-src 'self'",
