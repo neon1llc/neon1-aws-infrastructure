@@ -2,6 +2,11 @@
 
 neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete release, v1.0.0 (see neon1's [versioning standard](https://neon1.tech/knowledge/standards/versioning/)). Each release is tagged on the commit that was applied, once every stack's run has passed.
 
+## Unreleased
+
+- The 1NEON API origin (production and dev) gets the portal's secret header from `/1neon/<env>/origin_secret`, so the API can refuse anything that skips CloudFront. Apply 1NEON's Terraform first; it creates the parameter.
+- The 1NEON API's own origin request policy forwards cookies, query strings, the headers the API reads, and CloudFront's viewer address, which CloudFront sets itself. Sign-up and contact limits and signature records now see the real visitor address.
+
 ## v0.10.0 - 2026-11-15
 
 - 1NEON's Terraform role may manage API Gateway access-log delivery, so a change to the API's stage (the sign-up route's throttle) can apply. The 1NEON v0.13.0 deploy stopped there without it.

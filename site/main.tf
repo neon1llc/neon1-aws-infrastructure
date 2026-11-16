@@ -19,7 +19,6 @@ locals {
   caching_optimized_policy = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   caching_disabled_policy  = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
 
-  all_viewer_except_host_policy = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
 }
 
 
@@ -205,9 +204,15 @@ resource "aws_cloudfront_distribution" "site" {
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
   }
 
+  # CloudFront adds the portal's secret header too, so its API refuses anything that skips neon1.tech
   origin {
     origin_id   = "1neon-api"
     domain_name = data.aws_ssm_parameter.portal["api_domain"].value
+
+    custom_header {
+      name  = "x-origin-verify"
+      value = data.aws_ssm_parameter.portal["origin_secret"].value
+    }
 
     custom_origin_config {
       http_port              = 80
@@ -258,7 +263,7 @@ resource "aws_cloudfront_distribution" "site" {
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
     cache_policy_id            = local.caching_disabled_policy
-    origin_request_policy_id   = local.all_viewer_except_host_policy
+    origin_request_policy_id   = aws_cloudfront_origin_request_policy.portal_api.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.portal.id
   }
 
@@ -486,6 +491,31 @@ resource "aws_cloudfront_origin_request_policy" "chat" {
 
 # Published by the neon1-1NEON repo's Terraform (infra/envs/prod). Apply that stack first
 data "aws_ssm_parameter" "portal" {
-  for_each = toset(["app_bucket_domain", "api_domain"])
+  for_each = toset(["app_bucket_domain", "api_domain", "origin_secret"])
   name     = "/1neon/prod/${each.key}"
 }
+
+# The portal API's request policy: every cookie and query string, the few headers the API reads, and
+# CloudFront's own viewer address, which CloudFront always sets itself, so a caller can't choose the
+# address the sign-up and contact limits and signature records see. The Host header stays out, since
+# API Gateway answers only to its own name
+resource "aws_cloudfront_origin_request_policy" "portal_api" {
+  name    = "neon1-1neon-api"
+  comment = "1NEON API: cookies, query strings, the headers it reads, and the viewer address"
+
+  cookies_config {
+    cookie_behavior = "all"
+  }
+
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = ["content-type", "stripe-signature", "user-agent", "x-1neon", "CloudFront-Viewer-Address"]
+    }
+  }
+
+  query_strings_config {
+    query_string_behavior = "all"
+  }
+}
+
