@@ -7,6 +7,7 @@ Each folder with a `versions.tf` is a stack. State for each is in `s3://neon1-tf
 - `site/` hosts neon1.tech: private S3 origin, CloudFront, the certificate, and the apex and `www` records. See [site/README.md](site/README.md).
 - `dns/` holds the zone-wide records no app stack owns: a dated SOA serial, CAA (Amazon only), and the apex mail records for Google Workspace (MX, SPF, DKIM, DMARC, TLS reporting, and BIMI). See [dns/README.md](dns/README.md).
 - `github/` lets GitHub Actions reach AWS without stored keys. See [github/README.md](github/README.md).
+- `account/` holds account-wide guardrails: the CloudTrail audit trail and its locked bucket, the account-wide budget, and the cost anomaly email. Applied by hand (`make plan STACK=account`, then `make apply STACK=account`), never by CI.
 
 The Route 53 zone for neon1.tech is referenced, not owned. Each stack manages only its own records and leaves the rest alone. Credentials come from the environment (`AWS_PROFILE=neon1` locally, OIDC in CI). No profile is set in providers or backends.
 
