@@ -4,6 +4,8 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
+- `site/`: `/report-bug` serves the report-a-bug page (`/report-bug/index.html`), adding the trailing slash and keeping the query, so `?from=` survives.
+
 ## v0.11.1 - 2026-11-16
 
 - `account/`: account-wide guardrails no app stack owns. A CloudTrail trail records every management event in every region into `neon1-audit-trail`, a private bucket where each file is locked for a year (governance mode) and expires after 400 days. A $15 monthly budget covers the whole account, tagged or not, and cost anomaly emails now start at $5 instead of $100 and 40%. Created by hand on 2026-11-16 and imported here; applied by hand like `github/`.

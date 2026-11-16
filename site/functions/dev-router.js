@@ -45,6 +45,11 @@ async function siteHandler(event) {
   if (host === "mta-sts.neon1.tech") return uri === "/.well-known/mta-sts.txt" ? request : toApex(request);
   if (uri === "/" || uri.lastIndexOf(".") > uri.lastIndexOf("/")) return inRelease(request);
   if (uri === "/faqs" || uri === "/faqs/") return redirect("/knowledge/faq/working-with-neon1/");
+  if (uri === "/report-bug" || uri === "/report-bug/") {
+    if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
+    request.uri = uri + "index.html";
+    return inRelease(request);
+  }
   if (uri === "/knowledge" || uri.indexOf("/knowledge/") === 0 || uri === "/blog" || uri.indexOf("/blog/") === 0) {
     if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
     if (uri === "/knowledge/releases/") return redirect("/knowledge/company/releases/");
