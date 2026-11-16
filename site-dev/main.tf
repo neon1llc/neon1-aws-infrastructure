@@ -12,9 +12,8 @@ locals {
   hsts_max_age     = 63072000
   permissions_rule = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 
-  caching_optimized_policy      = "658327ea-f89d-4fab-a63d-7e88639e58f6"
-  caching_disabled_policy       = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
-  all_viewer_except_host_policy = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+  caching_optimized_policy = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+  caching_disabled_policy  = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
 
   # The live site's CSP; the portal's adds its documents bucket (the dev one here)
   csp_common = [
@@ -142,9 +141,35 @@ data "aws_cloudfront_origin_request_policy" "chat" {
 
 # 1NEON's dev backend (neon1-1NEON infra/envs/dev), when portal is on
 data "aws_ssm_parameter" "portal" {
-  for_each = var.portal ? toset(["app_bucket_domain", "api_domain"]) : toset([])
+  for_each = var.portal ? toset(["app_bucket_domain", "api_domain", "origin_secret"]) : toset([])
   name     = "/1neon/dev/${each.key}"
 }
+
+# The portal API's request policy: every cookie and query string, the few headers the API reads, and
+# CloudFront's own viewer address, which CloudFront always sets itself, so a caller can't choose the
+# address the sign-up and contact limits and signature records see. The Host header stays out, since
+# API Gateway answers only to its own name
+resource "aws_cloudfront_origin_request_policy" "portal_api_dev" {
+  count   = var.portal ? 1 : 0
+  name    = "neon1-1neon-api-dev"
+  comment = "1NEON API on dev: cookies, query strings, the headers it reads, and the viewer address"
+
+  cookies_config {
+    cookie_behavior = "all"
+  }
+
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = ["content-type", "stripe-signature", "user-agent", "x-1neon", "CloudFront-Viewer-Address"]
+    }
+  }
+
+  query_strings_config {
+    query_string_behavior = "all"
+  }
+}
+
 
 
 # --- Edge: the release store and the gate ---
@@ -334,6 +359,12 @@ resource "aws_cloudfront_distribution" "dev" {
       origin_id   = "1neon-api-dev"
       domain_name = data.aws_ssm_parameter.portal["api_domain"].value
 
+      # The dev API refuses anything without it (origin lock, neon1-1NEON infra/modules/api)
+      custom_header {
+        name  = "x-origin-verify"
+        value = data.aws_ssm_parameter.portal["origin_secret"].value
+      }
+
       custom_origin_config {
         http_port              = 80
         https_port             = 443
@@ -354,7 +385,7 @@ resource "aws_cloudfront_distribution" "dev" {
       cached_methods             = ["GET", "HEAD"]
       compress                   = true
       cache_policy_id            = local.caching_disabled_policy
-      origin_request_policy_id   = local.all_viewer_except_host_policy
+      origin_request_policy_id   = aws_cloudfront_origin_request_policy.portal_api_dev[0].id
       response_headers_policy_id = aws_cloudfront_response_headers_policy.dev["portal"].id
 
       function_association {
