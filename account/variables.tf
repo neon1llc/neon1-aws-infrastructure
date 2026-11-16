@@ -25,7 +25,7 @@ variable "alert_email" {
 variable "monthly_budget_usd" {
   description = "Account-wide monthly spend that triggers an email (80% actual, 100% forecast)."
   type        = number
-  default     = 25
+  default     = 15
 }
 
 

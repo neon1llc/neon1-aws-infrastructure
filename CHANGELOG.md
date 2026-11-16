@@ -4,7 +4,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
-- `account/`: account-wide guardrails no app stack owns. A CloudTrail trail records every management event in every region into `neon1-audit-trail`, a private bucket where each file is locked for a year (governance mode) and expires after 400 days. A $25 monthly budget covers the whole account, tagged or not, and cost anomaly emails now start at $5 instead of $100 and 40%. Created by hand on 2026-11-16 and imported here; applied by hand like `github/`.
+- `account/`: account-wide guardrails no app stack owns. A CloudTrail trail records every management event in every region into `neon1-audit-trail`, a private bucket where each file is locked for a year (governance mode) and expires after 400 days. A $15 monthly budget covers the whole account, tagged or not, and cost anomaly emails now start at $5 instead of $100 and 40%. Created by hand on 2026-11-16 and imported here; applied by hand like `github/`.
 
 ## v0.10.0 - 2026-11-15
 
