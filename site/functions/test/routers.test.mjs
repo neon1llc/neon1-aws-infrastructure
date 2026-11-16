@@ -83,6 +83,10 @@ test("knowledge center folders serve their index page, and gain a slash when the
   const shelf = await site(event("/knowledge/faq/"));
   assert.equal(shelf.statusCode, 301);
   assert.equal(shelf.headers.location.value, "/knowledge/#faq");
+  // The old releases address goes to the releases page, not a #releases shelf that doesn't exist
+  const releases = await site(event("/knowledge/releases/"));
+  assert.equal(releases.statusCode, 301);
+  assert.equal(releases.headers.location.value, "/knowledge/company/releases/");
   assert.equal((await site(event("/knowledge/faq"))).headers.location.value, "/knowledge/faq/");
   assert.equal((await site(event("/knowledge/x/", { host: "www.neon1.tech" }))).headers.location.value, "https://neon1.tech/knowledge/x/");
 });

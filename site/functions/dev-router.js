@@ -47,6 +47,7 @@ async function siteHandler(event) {
   if (uri === "/faqs" || uri === "/faqs/") return redirect("/knowledge/faq/working-with-neon1/");
   if (uri === "/knowledge" || uri.indexOf("/knowledge/") === 0 || uri === "/blog" || uri.indexOf("/blog/") === 0) {
     if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
+    if (uri === "/knowledge/releases/") return redirect("/knowledge/company/releases/");
     var shelf = /^\/knowledge\/([a-z0-9-]+)\/$/.exec(uri);
     if (shelf) return redirect("/knowledge/#" + shelf[1]);
     request.uri = uri + "index.html";

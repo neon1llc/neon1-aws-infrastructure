@@ -78,6 +78,8 @@ async function handler(event) {
     if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
     // A shelf's own folder (/knowledge/faq/, a link trimmed back by hand) has no page: its shelf
     // on the knowledge center's front page is the same list, so go there rather than to a bare 404
+    // The releases page moved to /knowledge/company/releases/ (site v0.73.1): an old link goes to the page, not the shelf
+    if (uri === "/knowledge/releases/") return redirect("/knowledge/company/releases/");
     var shelf = /^\/knowledge\/([a-z0-9-]+)\/$/.exec(uri);
     if (shelf) return redirect("/knowledge/#" + shelf[1]);
     request.uri = uri + "index.html";
