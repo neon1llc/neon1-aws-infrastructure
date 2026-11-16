@@ -91,6 +91,13 @@ test("knowledge center folders serve their index page, and gain a slash when the
   assert.equal((await site(event("/knowledge/x/", { host: "www.neon1.tech" }))).headers.location.value, "https://neon1.tech/knowledge/x/");
 });
 
+test("the report-a-bug page serves its index page, keeps the query, and has no other paths", async () => {
+  assert.equal((await site(event("/report-bug/"))).uri, "/releases/0123456789ab/report-bug/index.html");
+  assert.equal((await site(event("/report-bug"))).headers.location.value, "/report-bug/");
+  assert.equal((await site(event("/report-bug", { qs: { from: { value: "neo" } } }))).headers.location.value, "/report-bug/?from=neo");
+  assert.equal((await site(event("/report-bug/other/"))).statusCode, 404);
+});
+
 test("blog folders serve their index page, and gain a slash when they lack one", async () => {
   assert.equal((await site(event("/blog/"))).uri, "/releases/0123456789ab/blog/index.html");
   assert.equal((await site(event("/blog/some-post/"))).uri, "/releases/0123456789ab/blog/some-post/index.html");

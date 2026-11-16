@@ -47,6 +47,11 @@ async function siteHandler(event) {
   if (moved) return redirect("/knowledge/engagement/" + moved[1].split("/").pop() + (moved[3] || "/") + query(request));
   if (uri === "/" || uri.lastIndexOf(".") > uri.lastIndexOf("/")) return inRelease(request);
   if (uri === "/faqs" || uri === "/faqs/") return redirect("/knowledge/faq/working-with-neon1/");
+  if (uri === "/report-bug" || uri === "/report-bug/") {
+    if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
+    request.uri = uri + "index.html";
+    return inRelease(request);
+  }
   if (uri === "/knowledge" || uri.indexOf("/knowledge/") === 0 || uri === "/blog" || uri.indexOf("/blog/") === 0) {
     if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
     if (uri === "/knowledge/releases/") return redirect("/knowledge/company/releases/");
