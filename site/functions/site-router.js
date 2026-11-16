@@ -69,6 +69,10 @@ async function handler(event) {
   if (host === "www.neon1.tech") return toApex(request);
   // mta-sts.neon1.tech exists only for mail servers fetching the MTA-STS policy (RFC 8461)
   if (host === "mta-sts.neon1.tech") return uri === "/.well-known/mta-sts.txt" ? request : toApex(request);
+  // Seven knowledge center documents moved to the Engagement shelf (site v0.79): an old page or PDF address, with or without its
+  // final slash, goes to the new one. A trailing file name (neon1-contact.pdf) is kept, since the short names did not change
+  var moved = /^\/knowledge\/(company\/(capabilities|contact|pricing|process|publishing-client-work)|services\/services|policies\/service-agreement)(\/.*)?$/.exec(uri);
+  if (moved) return redirect("/knowledge/engagement/" + moved[1].split("/").pop() + (moved[3] || "/") + query(request));
   if (uri === "/" || uri.lastIndexOf(".") > uri.lastIndexOf("/")) return inRelease(request);
   // neon1.tech/faqs, like neon1.tech/1NEON/faqs: the full questions live in the knowledge center
   if (uri === "/faqs" || uri === "/faqs/") return redirect("/knowledge/faq/working-with-neon1/");
@@ -81,7 +85,7 @@ async function handler(event) {
     // The releases page moved to /knowledge/company/releases/ (site v0.73.1): an old link goes to the page, not the shelf
     if (uri === "/knowledge/releases/") return redirect("/knowledge/company/releases/");
     var shelf = /^\/knowledge\/([a-z0-9-]+)\/$/.exec(uri);
-    if (shelf) return redirect("/knowledge/#" + shelf[1]);
+    if (shelf) return redirect("/knowledge/#" + (shelf[1] === "services" ? "engagement" : shelf[1]));
     request.uri = uri + "index.html";
     return inRelease(request);
   }

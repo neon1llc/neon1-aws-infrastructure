@@ -43,13 +43,15 @@ async function siteHandler(event) {
   var host = request.headers.host ? request.headers.host.value : "";
   if (host === "www.neon1.tech") return toApex(request);
   if (host === "mta-sts.neon1.tech") return uri === "/.well-known/mta-sts.txt" ? request : toApex(request);
+  var moved = /^\/knowledge\/(company\/(capabilities|contact|pricing|process|publishing-client-work)|services\/services|policies\/service-agreement)(\/.*)?$/.exec(uri);
+  if (moved) return redirect("/knowledge/engagement/" + moved[1].split("/").pop() + (moved[3] || "/") + query(request));
   if (uri === "/" || uri.lastIndexOf(".") > uri.lastIndexOf("/")) return inRelease(request);
   if (uri === "/faqs" || uri === "/faqs/") return redirect("/knowledge/faq/working-with-neon1/");
   if (uri === "/knowledge" || uri.indexOf("/knowledge/") === 0 || uri === "/blog" || uri.indexOf("/blog/") === 0) {
     if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
     if (uri === "/knowledge/releases/") return redirect("/knowledge/company/releases/");
     var shelf = /^\/knowledge\/([a-z0-9-]+)\/$/.exec(uri);
-    if (shelf) return redirect("/knowledge/#" + shelf[1]);
+    if (shelf) return redirect("/knowledge/#" + (shelf[1] === "services" ? "engagement" : shelf[1]));
     request.uri = uri + "index.html";
     return inRelease(request);
   }
