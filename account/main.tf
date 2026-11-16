@@ -190,7 +190,9 @@ resource "aws_s3_bucket_policy" "trail" {
 # --- The trail: every management event in every region, with tamper-evident digest files ---
 
 
-# The first copy of management events is free; no data events, no CloudWatch Logs, so the cost is storage
+# The first copy of management events is free; no data events, no CloudWatch Logs, so the cost is storage.
+# S3-managed encryption, not a customer key: a KMS key costs more than the whole trail (same reason as AWS-0132)
+#trivy:ignore:AWS-0015
 resource "aws_cloudtrail" "account" {
   name                          = local.trail_name
   s3_bucket_name                = aws_s3_bucket.trail.id
