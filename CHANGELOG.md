@@ -4,6 +4,8 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
+## v0.11.0 - 2026-11-16
+
 - The old releases address, /knowledge/releases/, goes to the releases page (/knowledge/company/releases/) instead of the Knowledge Center's front page. On dev and production.
 - The 1NEON API origin (production and dev) gets the portal's secret header from `/1neon/<env>/origin_secret`, so the API can refuse anything that skips CloudFront. Apply 1NEON's Terraform first; it creates the parameter.
 - The 1NEON API's own origin request policy forwards cookies, query strings, the headers the API reads, and CloudFront's viewer address, which CloudFront sets itself. Sign-up and contact limits and signature records now see the real visitor address.
