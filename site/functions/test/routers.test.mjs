@@ -91,6 +91,13 @@ test("knowledge center folders serve their index page, and gain a slash when the
   assert.equal((await site(event("/knowledge/x/", { host: "www.neon1.tech" }))).headers.location.value, "https://neon1.tech/knowledge/x/");
 });
 
+test("the report-a-bug page serves its index page, keeps the query, and has no other paths", async () => {
+  assert.equal((await site(event("/report-bug/"))).uri, "/releases/0123456789ab/report-bug/index.html");
+  assert.equal((await site(event("/report-bug"))).headers.location.value, "/report-bug/");
+  assert.equal((await site(event("/report-bug", { qs: { from: { value: "neo" } } }))).headers.location.value, "/report-bug/?from=neo");
+  assert.equal((await site(event("/report-bug/other/"))).statusCode, 404);
+});
+
 test("blog folders serve their index page, and gain a slash when they lack one", async () => {
   assert.equal((await site(event("/blog/"))).uri, "/releases/0123456789ab/blog/index.html");
   assert.equal((await site(event("/blog/some-post/"))).uri, "/releases/0123456789ab/blog/some-post/index.html");
@@ -199,4 +206,14 @@ test("dev: a branch preview cookie picks that branch's release, and falls back t
   assert.match(back.cookies.n1preview.attributes, /Max-Age=0/);
   const out = await dev(devEvent("/__signout", { cookies: { n1dev } }));
   assert.match(out.cookies.n1dev.attributes, /Max-Age=0/);
+});
+
+test("site router: documents that moved to the Engagement shelf redirect, page and PDF", async () => {
+  const to = async (uri) => { const r = await site(event(uri)); return r.headers.location.value; };
+  assert.equal(await to("/knowledge/company/contact/"), "/knowledge/engagement/contact/");
+  assert.equal(await to("/knowledge/company/pricing"), "/knowledge/engagement/pricing/");
+  assert.equal(await to("/knowledge/company/process/neon1-process.pdf"), "/knowledge/engagement/process/neon1-process.pdf");
+  assert.equal(await to("/knowledge/services/services/"), "/knowledge/engagement/services/");
+  assert.equal(await to("/knowledge/policies/service-agreement/"), "/knowledge/engagement/service-agreement/");
+  assert.equal(await to("/knowledge/services/"), "/knowledge/#engagement");
 });
