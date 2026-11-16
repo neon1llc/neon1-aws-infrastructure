@@ -4,6 +4,8 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
+## v0.12.0 - 2026-11-16
+
 - `site/`: the knowledge documents that moved to the Engagement shelf (services, pricing, process, capabilities, contact, publishing client work, and the service agreement) redirect from their old addresses, page and PDF, and the old services shelf address goes to the Engagement shelf.
 - `site/`: `/report-bug` serves the report-a-bug page (`/report-bug/index.html`), adding the trailing slash and keeping the query, so `?from=` survives.
 
