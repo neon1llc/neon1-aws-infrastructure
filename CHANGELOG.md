@@ -4,6 +4,8 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
+## v0.13.0 - 2026-11-17
+
 - `site/`: `/feedback` serves the feedback page (`/feedback/index.html`), adding the trailing slash and keeping the query, as `/report-bug` does.
 
 ## v0.12.0 - 2026-11-16
