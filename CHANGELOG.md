@@ -4,6 +4,10 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
+## v0.13.0 - 2026-11-17
+
+- `site/`: `/feedback` serves the feedback page (`/feedback/index.html`), adding the trailing slash and keeping the query, as `/report-bug` does.
+
 ## v0.12.0 - 2026-11-16
 
 - `site/`: the knowledge documents that moved to the Engagement shelf (services, pricing, process, capabilities, contact, publishing client work, and the service agreement) redirect from their old addresses, page and PDF, and the old services shelf address goes to the Engagement shelf.

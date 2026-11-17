@@ -77,7 +77,8 @@ async function handler(event) {
   // neon1.tech/faqs, like neon1.tech/1NEON/faqs: the full questions live in the knowledge center
   if (uri === "/faqs" || uri === "/faqs/") return redirect("/knowledge/faq/working-with-neon1/");
   // The report-a-bug page is one folder page, /report-bug/ (neon1-site's scripts/report-bug.mjs): the same rule, without the folder's other paths
-  if (uri === "/report-bug" || uri === "/report-bug/") {
+  // /feedback (scripts/feedback.mjs) is its sibling and follows the same rule
+  if (uri === "/report-bug" || uri === "/report-bug/" || uri === "/feedback" || uri === "/feedback/") {
     if (uri.charAt(uri.length - 1) !== "/") return redirect(uri + "/" + query(request));
     request.uri = uri + "index.html";
     return inRelease(request);
