@@ -98,6 +98,13 @@ test("the report-a-bug page serves its index page, keeps the query, and has no o
   assert.equal((await site(event("/report-bug/other/"))).statusCode, 404);
 });
 
+test("the feedback page follows the report-a-bug page's rule", async () => {
+  assert.equal((await site(event("/feedback/"))).uri, "/releases/0123456789ab/feedback/index.html");
+  assert.equal((await site(event("/feedback"))).headers.location.value, "/feedback/");
+  assert.equal((await site(event("/feedback", { qs: { from: { value: "neo" } } }))).headers.location.value, "/feedback/?from=neo");
+  assert.equal((await site(event("/feedback/other/"))).statusCode, 404);
+});
+
 test("blog folders serve their index page, and gain a slash when they lack one", async () => {
   assert.equal((await site(event("/blog/"))).uri, "/releases/0123456789ab/blog/index.html");
   assert.equal((await site(event("/blog/some-post/"))).uri, "/releases/0123456789ab/blog/some-post/index.html");
