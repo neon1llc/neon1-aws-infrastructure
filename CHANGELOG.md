@@ -4,6 +4,8 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
+- `github/`: the dev 1NEON boundary grants texts only when `portal_dev_sms_sender_arn` is set, and the CI plan no longer reads an SSM parameter for it. With no sender set, dev can send no texts, as before.
+
 ## v0.13.0 - 2026-11-17
 
 - `site/`: `/feedback` serves the feedback page (`/feedback/index.html`), adding the trailing slash and keeping the query, as `/report-bug` does.
