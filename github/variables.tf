@@ -123,3 +123,17 @@ variable "chat_model_id" {
   type        = string
   default     = "qwen.qwen3-next-80b-a3b"
 }
+
+
+# Dev texting stays off until the dev number is registered. Then set this to that sender's ARN
+# (an sms-voice phone number or pool ARN) and apply by hand
+variable "portal_dev_sms_sender_arn" {
+  description = "ARN of 1NEON dev's dedicated SMS sender; empty means dev can send no texts."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.portal_dev_sms_sender_arn == "" || can(regex("^arn:aws:sms-voice:[a-z0-9-]+:[0-9]{12}:(phone-number|pool)/.+$", var.portal_dev_sms_sender_arn))
+    error_message = "portal_dev_sms_sender_arn must be empty or an sms-voice phone-number or pool ARN."
+  }
+}
