@@ -11,12 +11,6 @@ data "aws_ssm_parameter" "site_dev" {
 }
 
 
-# 1NEON's dev stack publishes this sender ARN before the boundary is applied
-data "aws_ssm_parameter" "portal_dev_sms_sender" {
-  name = "/1neon/dev/sms/sender_arn"
-}
-
-
 locals {
   dev_bucket_arn = "arn:aws:s3:::${data.aws_ssm_parameter.site_dev["bucket"].value}"
   dev_dist_arn   = "arn:aws:cloudfront::${local.account}:distribution/${data.aws_ssm_parameter.site_dev["distribution_id"].value}"
@@ -158,7 +152,8 @@ resource "aws_iam_role_policy" "portal_dev_deploy" {
 
 # --- Ceiling for 1NEON's dev function roles (neon1-1NEON infra/envs/dev attaches it) ---
 # Like production's, but scoped to 1neon-dev names, its own parameters, and a user pool tagged
-# Environment=dev, and its dedicated SMS sender; mail stays on the dev configuration set
+# Environment=dev. Texts only through its dedicated sender, once var.portal_dev_sms_sender_arn is
+# set; mail stays on the dev configuration set
 
 
 data "aws_iam_policy_document" "boundary_portal_dev" {
@@ -207,11 +202,16 @@ data "aws_iam_policy_document" "boundary_portal_dev" {
     }
   }
 
-  # Dev text sends can use only its separately provisioned sender identity
-  statement {
-    sid       = "Texts"
-    actions   = ["sms-voice:SendTextMessage"]
-    resources = [data.aws_ssm_parameter.portal_dev_sms_sender.value]
+  # Dev text sends can use only its separately provisioned sender identity. With no sender set,
+  # the statement is left out and dev can send no texts
+  dynamic "statement" {
+    for_each = var.portal_dev_sms_sender_arn == "" ? [] : [var.portal_dev_sms_sender_arn]
+
+    content {
+      sid       = "Texts"
+      actions   = ["sms-voice:SendTextMessage"]
+      resources = [statement.value]
+    }
   }
 
   # Only a pool tagged Environment=dev; production's carries Environment=prod
