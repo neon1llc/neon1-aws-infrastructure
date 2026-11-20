@@ -238,6 +238,16 @@ resource "aws_cloudfront_response_headers_policy" "dev" {
       override = true
     }
   }
+
+  # S3's own headers say what the origin is and name object versions
+  remove_headers_config {
+    dynamic "items" {
+      for_each = toset(["Server", "x-amz-version-id", "x-amz-server-side-encryption"])
+      content {
+        header = items.value
+      }
+    }
+  }
 }
 
 
@@ -283,6 +293,13 @@ resource "aws_cloudfront_distribution" "dev" {
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.dev_router.arn
+    }
+
+    # S3's errors never reach a visitor (not-found.tf)
+    lambda_function_association {
+      event_type   = "origin-response"
+      lambda_arn   = aws_lambda_function.dev_not_found.qualified_arn
+      include_body = false
     }
   }
 
@@ -411,6 +428,12 @@ resource "aws_cloudfront_distribution" "dev" {
       function_association {
         event_type   = "viewer-request"
         function_arn = aws_cloudfront_function.dev_router.arn
+      }
+
+      lambda_function_association {
+        event_type   = "origin-response"
+        lambda_arn   = aws_lambda_function.dev_not_found.qualified_arn
+        include_body = false
       }
     }
   }

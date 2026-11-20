@@ -4,6 +4,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
+- `site/` and `site-dev/`: a missing file, dotfile, or sourcemap (`/.env`, `/x.js`, anything with a dot in its last segment) now returns the not-found page with a 404 instead of S3's XML error, which named the release folder and carried request IDs. An origin-response Lambda@Edge on the two S3 behaviors replaces every S3 client error, and the headers policies drop `Server`, `x-amz-version-id`, and `x-amz-server-side-encryption`. API errors pass through unchanged. Applied to dev; the `site` change ships when this merges to main.
 - `github/`: the dev 1NEON boundary grants texts only when `portal_dev_sms_sender_arn` is set, and the CI plan no longer reads an SSM parameter for it. With no sender set, dev can send no texts, as before.
 
 ## v0.13.0 - 2026-11-17

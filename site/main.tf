@@ -193,6 +193,13 @@ resource "aws_cloudfront_distribution" "site" {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.site_router.arn
     }
+
+    # S3's errors never reach a visitor (not-found.tf)
+    lambda_function_association {
+      event_type   = "origin-response"
+      lambda_arn   = aws_lambda_function.not_found.qualified_arn
+      include_body = false
+    }
   }
 
   # --- 1NEON portal at /1NEON (resources owned by the neon1llc/neon1-1NEON repo) ---
@@ -281,6 +288,12 @@ resource "aws_cloudfront_distribution" "site" {
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.portal_router.arn
+    }
+
+    lambda_function_association {
+      event_type   = "origin-response"
+      lambda_arn   = aws_lambda_function.not_found.qualified_arn
+      include_body = false
     }
   }
 
@@ -404,6 +417,16 @@ resource "aws_cloudfront_response_headers_policy" "site" {
       override = true
     }
   }
+
+  # S3's own headers say what the origin is and name object versions
+  remove_headers_config {
+    dynamic "items" {
+      for_each = toset(["Server", "x-amz-version-id", "x-amz-server-side-encryption"])
+      content {
+        header = items.value
+      }
+    }
+  }
 }
 
 
@@ -455,6 +478,16 @@ resource "aws_cloudfront_response_headers_policy" "portal" {
       header   = "Permissions-Policy"
       value    = local.permissions_rule
       override = true
+    }
+  }
+
+  # S3's own headers say what the origin is and name object versions
+  remove_headers_config {
+    dynamic "items" {
+      for_each = toset(["Server", "x-amz-version-id", "x-amz-server-side-encryption"])
+      content {
+        header = items.value
+      }
     }
   }
 }
