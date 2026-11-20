@@ -17,12 +17,12 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## v0.11.1 - 2026-11-16
 
-- `account/`: account-wide guardrails no app stack owns. A CloudTrail trail records every management event in every region into `neon1-audit-trail`, a private bucket where each file is locked for a year (governance mode) and expires after 400 days. A $15 monthly budget covers the whole account, tagged or not, and cost anomaly emails now start at $5 instead of $100 and 40%. Created by hand on 2026-11-16 and imported here; applied by hand like `github/`.
+- `account/`: account-wide guardrails no app stack owns. A CloudTrail trail records every management event in every region into `neon1-audit-trail`, a private bucket where each file is locked for a year (governance mode) and expires after 400 days. A $15 monthly budget covers the whole account, tagged or not, and cost anomaly emails now start at $5 instead of $100 and 40%. Created by hand on 2026-11-16, imported here, and applied by hand like `github/`.
 
 ## v0.11.0 - 2026-11-16
 
 - The old releases address, /knowledge/releases/, goes to the releases page (/knowledge/company/releases/) instead of the Knowledge Center's front page. On dev and production.
-- The 1NEON API origin (production and dev) gets the portal's secret header from `/1neon/<env>/origin_secret`, so the API can refuse anything that skips CloudFront. Apply 1NEON's Terraform first; it creates the parameter.
+- The 1NEON API origin (production and dev) gets the portal's secret header from `/1neon/<env>/origin_secret`, so the API can refuse anything that skips CloudFront. Apply 1NEON's Terraform first, since it creates the parameter.
 - The 1NEON API's own origin request policy forwards cookies, query strings, the headers the API reads, and CloudFront's viewer address, which CloudFront sets itself. Sign-up and contact limits and signature records now see the real visitor address.
 
 ## v0.10.0 - 2026-11-15
@@ -34,7 +34,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## v0.9.0 - 2026-11-15
 
-- The 1NEON portal's content security policy lets Cloudflare Turnstile (`https://challenges.cloudflare.com`) load its script and frame, for the bot check on the portal's new sign-up form. On dev and production; the marketing site's policy is unchanged.
+- The 1NEON portal's content security policy lets Cloudflare Turnstile (`https://challenges.cloudflare.com`) load its script and frame, for the bot check on the portal's new sign-up form. On dev and production. The marketing site's policy is unchanged.
 
 ## v0.8.1 - 2026-11-15
 
@@ -42,7 +42,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## v0.8.0 - 2026-11-13
 
-- dev.neon1.tech sign-in: the secret link starts a sign-in at the 1NEON dev pool (auth-dev.neon1.tech), and only members of its new dev-access group get the cookie, after a passkey or email code. A Lambda@Edge function (`site/functions/dev-auth.mjs`) runs on `/__signin` and `/__auth` only; every other request is still checked by the CloudFront Function alone. The link key and the cookie key are now separate, so a new link no longer signs devices out.
+- dev.neon1.tech sign-in: the secret link starts a sign-in at the 1NEON dev pool (auth-dev.neon1.tech), and only members of its new dev-access group get the cookie, after a passkey or email code. A Lambda@Edge function (`site/functions/dev-auth.mjs`) runs on `/__signin` and `/__auth` only. The CloudFront Function alone still checks every other request. The link key and the cookie key are now separate, so a new link no longer signs devices out.
 
 ## v0.7.0 - 2026-11-13
 
@@ -76,7 +76,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 ## v0.4.1 - 2026-11-12
 
 ### Changed
-- neon1.tech's CloudFront distribution serves HTTP/2 only (HTTP/3 off), as a test of whether HTTP/3 causes the occasional "network connection was lost" in DuckDuckGo on iPhone. Visitors see no difference; turning it back on is the same one line.
+- neon1.tech's CloudFront distribution serves HTTP/2 only (HTTP/3 off), as a test of whether HTTP/3 causes the occasional "network connection was lost" in DuckDuckGo on iPhone. Visitors see no difference, and turning it back on is one line.
 
 ## v0.4.0 - 2026-11-11
 
@@ -84,7 +84,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 - A release switch for neon1.tech: the `neon1-site-release` key value store names the live release folder, and the site router serves pages, scripts, and styles from `releases/<id>/`, so a deploy moves every visitor to a new release at once. Fonts, media, and `.well-known` stay shared at the bucket's top. With no release set, the top level serves as before.
 
 ### Changed
-- The site deploy role may read and switch the live release; the Terraform role may manage and tag the release store.
+- The site deploy role may read and switch the live release, and the Terraform role may manage and tag the release store.
 
 ## v0.3.0 - 2026-11-11
 
@@ -107,7 +107,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 - The Terraform role may change the dns stack's record names and types, and its state.
 
 ### Removed
-- The `autodiscover` record left from an Amazon WorkMail setup that was never used; mail is on Google Workspace.
+- The `autodiscover` record left from an Amazon WorkMail setup that was never used. Mail is on Google Workspace.
 
 ## v0.1.0 - 2026-11-10
 

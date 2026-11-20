@@ -10,7 +10,7 @@ Lets GitHub Actions reach AWS without stored keys. It holds the account's GitHub
 | `github-1neon-terraform` | neon1llc/neon1-1NEON | Apply 1NEON's `infra/envs/prod`: its buckets, table, functions, user pool, HTTP API, schedule, alarms, texting number, and mail identity, each scoped to 1NEON's names or IDs. |
 | `github-neon1-chat-terraform` | neon1llc/neon1-chat | Apply the assistant's `infra/`, which also ships its code: table, function, HTTP API, alarms, and budget. |
 
-Roles that create function roles must attach their boundary (`boundaries.tf`) and can never remove it. The IDs that scope the user pool, the HTTP APIs, and the assistant's model are variables (`portal_user_pool_id`, `portal_api_id`, `chat_api_id`, `chat_model_id`). If one of those resources is replaced, put its new ID there and apply this stack before the other stack touches it.
+Roles that create function roles must attach their boundary (`boundaries.tf`) and can never remove it. The IDs that scope the user pool, the HTTP APIs, and the assistant's model are variables (`portal_user_pool_id`, `portal_api_id`, `chat_api_id`, `chat_model_id`). If one of those resources is replaced, put its new ID there and apply this stack first.
 
 The Terraform role can't change IAM, so a bad workflow can't grant itself more access. This stack is always applied by hand:
 

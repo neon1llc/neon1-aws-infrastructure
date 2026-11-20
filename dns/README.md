@@ -33,7 +33,7 @@ Mail from Google Workspace passes DMARC by aligned SPF, and by DKIM once signing
 
 ## BIMI
 
-Receivers honor BIMI only under an enforcing DMARC. Without `bimi_authority_url`, the logo is self-asserted, which some providers show. Gmail and Apple Mail show it only with a Verified Mark Certificate (needs a registered trademark) or a Common Mark Certificate (needs a year of public use of the logo). Both are yearly purchases from DigiCert or Sectigo. Put the certificate's PEM on the site and its URL in `bimi_authority_url`.
+Receivers honor BIMI only under an enforcing DMARC. Without `bimi_authority_url`, the logo is self-asserted, which some providers show. Gmail and Apple Mail need a Verified Mark Certificate (a registered trademark) or a Common Mark Certificate (a year of public use of the logo), bought yearly from DigiCert or Sectigo. Put the certificate's PEM on the site and its URL in `bimi_authority_url`.
 
 The logo is `src/app/public/bimi/neon1.svg` in neon1-site: SVG Tiny PS, square, solid background.
 
