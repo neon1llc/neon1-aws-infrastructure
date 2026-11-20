@@ -186,9 +186,14 @@ data "aws_iam_policy_document" "boundary_portal_dev" {
   }
 
   statement {
-    sid       = "Secrets"
-    actions   = ["ssm:GetParameters"]
-    resources = ["arn:aws:ssm:us-east-1:${local.account}:parameter/1neon/dev/*"]
+    sid     = "Secrets"
+    actions = ["ssm:GetParameters"]
+    resources = [
+      "arn:aws:ssm:us-east-1:${local.account}:parameter/1neon/dev/*",
+      # neon1's Pushover keys, for dev chat alerts: these two parameters only
+      "arn:aws:ssm:us-east-1:${local.account}:parameter/neon1-notify/dev/pushover_app_token",
+      "arn:aws:ssm:us-east-1:${local.account}:parameter/neon1-notify/dev/pushover_user_key",
+    ]
   }
 
   statement {
