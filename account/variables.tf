@@ -33,7 +33,7 @@ variable "monthly_budget_usd" {
 variable "anomaly_threshold_usd" {
   description = "Dollar impact at which AWS cost anomaly detection emails."
   type        = number
-  default     = 5
+  default     = 2
 }
 
 
@@ -48,4 +48,24 @@ variable "trail_lock_days" {
   description = "Days each audit log file is locked against deletion (governance mode)."
   type        = number
   default     = 365
+}
+
+# Everyone who gets budget and anomaly emails
+variable "alert_emails" {
+  description = "Budget and cost anomaly recipients."
+  type        = list(string)
+  default     = ["neon1llc@gmail.com", "pradeep@neon1.tech"]
+}
+
+# Bedrock is the only service that has moved the bill in a day: one evaluation night cost about $30
+variable "bedrock_daily_usd" {
+  description = "Daily Bedrock spend that sends an email."
+  type        = number
+  default     = 3
+}
+
+variable "bedrock_monthly_usd" {
+  description = "Monthly Bedrock spend at which model calls from the human admin user are denied."
+  type        = number
+  default     = 50
 }

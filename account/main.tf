@@ -216,12 +216,22 @@ resource "aws_budgets_budget" "account" {
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
 
+  # Run rate only: domain registration and renewal are one-time yearly charges, and tax follows them
+  cost_filter {
+    name   = "CostCategory"
+    values = ["${aws_ce_cost_category.run_rate.name}$ongoing"]
+  }
+
+  cost_types {
+    include_tax = false
+  }
+
   notification {
     comparison_operator        = "GREATER_THAN"
     threshold                  = 80
     threshold_type             = "PERCENTAGE"
     notification_type          = "ACTUAL"
-    subscriber_email_addresses = [var.alert_email]
+    subscriber_email_addresses = var.alert_emails
   }
 
   notification {
@@ -229,7 +239,7 @@ resource "aws_budgets_budget" "account" {
     threshold                  = 100
     threshold_type             = "PERCENTAGE"
     notification_type          = "FORECASTED"
-    subscriber_email_addresses = [var.alert_email]
+    subscriber_email_addresses = var.alert_emails
   }
 }
 
@@ -240,9 +250,12 @@ resource "aws_ce_anomaly_subscription" "services" {
   frequency        = "DAILY"
   monitor_arn_list = ["arn:aws:ce::${local.account}:anomalymonitor/c34a3689-6e7e-405b-98b1-cd3c275e0cfe"]
 
-  subscriber {
-    type    = "EMAIL"
-    address = var.alert_email
+  dynamic "subscriber" {
+    for_each = var.alert_emails
+    content {
+      type    = "EMAIL"
+      address = subscriber.value
+    }
   }
 
   threshold_expression {
@@ -252,4 +265,25 @@ resource "aws_ce_anomaly_subscription" "services" {
       values        = [tostring(var.anomaly_threshold_usd)]
     }
   }
+}
+
+
+# Usage only, so the account budget measures what the stack costs to run. Domain registration shows as
+# record type Other, and tax is its own type
+resource "aws_ce_cost_category" "run_rate" {
+  name         = "neon1-run-rate"
+  rule_version = "CostCategoryExpression.v1"
+
+  rule {
+    value = "ongoing"
+    rule {
+      dimension {
+        key           = "RECORD_TYPE"
+        values        = ["Usage"]
+        match_options = ["EQUALS"]
+      }
+    }
+  }
+
+  default_value = "one_time"
 }
