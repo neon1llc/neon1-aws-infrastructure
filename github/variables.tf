@@ -119,10 +119,11 @@ variable "portal_dev_neo_model_id" {
   default     = "anthropic.claude-sonnet-4-6"
 }
 
+# Sonnet 5.5 answers "not available for this account" (2026-11-20), so production's Neo runs on Sonnet 4.6 until it is enabled
 variable "portal_neo_model_id" {
   description = "Bedrock model ID 1NEON's Neo may call."
   type        = string
-  default     = "anthropic.claude-sonnet-5-5"
+  default     = "anthropic.claude-sonnet-4-6"
 }
 
 variable "chat_model_id" {
