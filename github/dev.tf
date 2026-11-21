@@ -239,9 +239,15 @@ data "aws_iam_policy_document" "boundary_portal_dev" {
   }
 
   statement {
-    sid       = "Model"
-    actions   = ["bedrock:InvokeModel"]
-    resources = ["arn:aws:bedrock:us-east-1:${local.account}:inference-profile/us.${var.portal_neo_model_id}", "arn:aws:bedrock:us-*::foundation-model/${var.portal_neo_model_id}"]
+    sid     = "Model"
+    actions = ["bedrock:InvokeModel"]
+    resources = [
+      "arn:aws:bedrock:us-east-1:${local.account}:inference-profile/us.${var.portal_neo_model_id}",
+      "arn:aws:bedrock:us-*::foundation-model/${var.portal_neo_model_id}",
+      # Dev's Neo runs on a model this account can use today (see portal_dev_neo_model_id); production's is unchanged
+      "arn:aws:bedrock:us-east-1:${local.account}:inference-profile/us.${var.portal_dev_neo_model_id}",
+      "arn:aws:bedrock:us-*::foundation-model/${var.portal_dev_neo_model_id}",
+    ]
   }
 }
 

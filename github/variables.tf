@@ -112,6 +112,13 @@ variable "chat_api_id" {
 }
 
 # The assistant's model, matching neon1-chat's own model variable (without any "us." prefix)
+# Dev's Neo, a model this account can invoke now: Sonnet 5.5 answers "not available for this account" (2026-11-20)
+variable "portal_dev_neo_model_id" {
+  description = "Bedrock model ID 1NEON dev's Neo may call, besides portal_neo_model_id."
+  type        = string
+  default     = "anthropic.claude-sonnet-4-6"
+}
+
 variable "portal_neo_model_id" {
   description = "Bedrock model ID 1NEON's Neo may call."
   type        = string
