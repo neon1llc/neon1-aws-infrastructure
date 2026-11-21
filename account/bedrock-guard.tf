@@ -92,6 +92,16 @@ data "aws_iam_policy_document" "budgets_attach" {
       values   = [aws_iam_policy.bedrock_deny.arn]
     }
   }
+
+  statement {
+    actions   = ["iam:AttachRolePolicy", "iam:DetachRolePolicy"]
+    resources = [aws_iam_role.eval.arn]
+    condition {
+      test     = "ArnEquals"
+      variable = "iam:PolicyARN"
+      values   = [aws_iam_policy.bedrock_deny.arn]
+    }
+  }
 }
 
 resource "aws_iam_role" "budget_action" {
@@ -117,6 +127,7 @@ resource "aws_budgets_budget_action" "bedrock_deny" {
     iam_action_definition {
       policy_arn = aws_iam_policy.bedrock_deny.arn
       users      = [local.admin_user]
+      roles      = [aws_iam_role.eval.name]
     }
   }
   execution_role_arn = aws_iam_role.budget_action.arn
@@ -124,4 +135,92 @@ resource "aws_budgets_budget_action" "bedrock_deny" {
     subscription_type = "EMAIL"
     address           = var.alert_emails[0]
   }
+}
+
+
+# The role Neo's evaluation scripts use (AWS_PROFILE=neon1-eval), so their model calls are separable in the
+# logs and the cap above reaches them: model calls only, to the two models the evaluation uses
+data "aws_iam_policy_document" "eval_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${local.account}:user/${local.admin_user}"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "eval" {
+  statement {
+    actions = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+    resources = [
+      "arn:aws:bedrock:us-east-1:${local.account}:inference-profile/us.anthropic.claude-sonnet-4-6",
+      "arn:aws:bedrock:us-*::foundation-model/anthropic.claude-sonnet-4-6",
+      "arn:aws:bedrock:us-east-1::foundation-model/qwen.qwen3-next-80b-a3b",
+    ]
+  }
+}
+
+resource "aws_iam_role" "eval" {
+  name                 = "neon1-eval"
+  assume_role_policy   = data.aws_iam_policy_document.eval_assume.json
+  max_session_duration = 3600
+}
+
+resource "aws_iam_role_policy" "eval" {
+  role   = aws_iam_role.eval.id
+  policy = data.aws_iam_policy_document.eval.json
+}
+
+
+# Who called which model, without the prompts or replies: metadata only, kept two weeks
+resource "aws_cloudwatch_log_group" "bedrock_calls" {
+  name              = "/neon1/bedrock-invocations"
+  retention_in_days = 14
+}
+
+data "aws_iam_policy_document" "bedrock_logs_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["bedrock.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [local.account]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "bedrock_logs" {
+  statement {
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.bedrock_calls.arn}:*"]
+  }
+}
+
+resource "aws_iam_role" "bedrock_logs" {
+  name               = "neon1-bedrock-logging"
+  assume_role_policy = data.aws_iam_policy_document.bedrock_logs_assume.json
+}
+
+resource "aws_iam_role_policy" "bedrock_logs" {
+  role   = aws_iam_role.bedrock_logs.id
+  policy = data.aws_iam_policy_document.bedrock_logs.json
+}
+
+resource "aws_bedrock_model_invocation_logging_configuration" "calls" {
+  logging_config {
+    text_data_delivery_enabled      = false
+    image_data_delivery_enabled     = false
+    embedding_data_delivery_enabled = false
+    cloudwatch_config {
+      log_group_name = aws_cloudwatch_log_group.bedrock_calls.name
+      role_arn       = aws_iam_role.bedrock_logs.arn
+    }
+  }
+
+  depends_on = [aws_iam_role_policy.bedrock_logs]
 }
