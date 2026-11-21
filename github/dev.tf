@@ -231,6 +231,13 @@ data "aws_iam_policy_document" "boundary_portal_dev" {
     }
   }
 
+  # neon1's own alerts go through the neon1-notify dev function; this one function only
+  statement {
+    sid       = "Notify"
+    actions   = ["lambda:InvokeFunction"]
+    resources = ["arn:aws:lambda:us-east-1:${local.account}:function:neon1-notify-dev"]
+  }
+
   # Mail from notify.neon1.tech; neon1.tech too, since SES checks verified recipients' identities
   statement {
     sid       = "Mail"
