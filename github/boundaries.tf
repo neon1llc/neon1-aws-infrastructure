@@ -66,6 +66,13 @@ data "aws_iam_policy_document" "boundary_portal" {
     resources = ["arn:aws:cognito-idp:us-east-1:${local.account}:userpool/${var.portal_user_pool_id}"]
   }
 
+  # neon1's own alerts go through the neon1-notify function; this one function only
+  statement {
+    sid       = "Notify"
+    actions   = ["lambda:InvokeFunction"]
+    resources = ["arn:aws:lambda:us-east-1:${local.account}:function:neon1-notify-prod"]
+  }
+
   # Mail from notify.neon1.tech only. SES also checks a recipient's identity when it's verified here,
   # so mail to @neon1.tech (the operators) needs neon1.tech and its address identities as well
   statement {
