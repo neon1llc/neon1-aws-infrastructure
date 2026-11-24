@@ -4,7 +4,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
-- `account/`: an outside check of neon1.tech. A Route 53 health check asks the home page every 30 seconds, and a CloudWatch alarm emails when it fails three checks in a row or stops reporting. Apply by hand, and confirm the two email subscriptions once.
+- `account/`: an outside check of neon1.tech. A Route 53 health check asks the home page every 30 seconds, and a CloudWatch alarm emails when it fails three checks in a row or stops reporting. Apply by hand, and confirm the two email subscriptions once. The alert topic is encrypted with its own key.
 - `github/`: the dev 1NEON boundary grants texts only when `portal_dev_sms_sender_arn` is set, and the CI plan no longer reads an SSM parameter for it. With no sender set, dev can send no texts, as before.
 
 ## v0.13.0 - 2026-11-17

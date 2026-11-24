@@ -18,9 +18,45 @@ resource "aws_route53_health_check" "site" {
 }
 
 
+# The alert topic is encrypted with its own key. CloudWatch can't publish through the AWS managed SNS key,
+# so the policy lets this account's alarms use this one
+resource "aws_kms_key" "uptime" {
+  description             = "neon1 uptime alert topic"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AccountAdministers"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${local.account}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        Sid       = "AlarmsPublish"
+        Effect    = "Allow"
+        Principal = { Service = "cloudwatch.amazonaws.com" }
+        Action    = ["kms:Decrypt", "kms:GenerateDataKey*"]
+        Resource  = "*"
+        Condition = { StringEquals = { "aws:SourceAccount" = local.account } }
+      },
+    ]
+  })
+}
+
+resource "aws_kms_alias" "uptime" {
+  name          = "alias/neon1-uptime"
+  target_key_id = aws_kms_key.uptime.key_id
+}
+
+
 # Where the alarm sends its email
 resource "aws_sns_topic" "uptime" {
-  name = "neon1-uptime"
+  name              = "neon1-uptime"
+  kms_master_key_id = aws_kms_key.uptime.arn
 }
 
 resource "aws_sns_topic_subscription" "uptime" {
