@@ -53,11 +53,11 @@ variable "alert_emails" {
 variable "bedrock_daily_usd" {
   description = "Daily Bedrock spend that sends an email."
   type        = number
-  default     = 3
+  default     = 1
 }
 
 variable "bedrock_monthly_usd" {
-  description = "Monthly Bedrock spend at which model calls from the human admin user are denied."
+  description = "Monthly Bedrock spend at which model calls from the human admin user are denied. Ten keeps Bedrock and the rest of the account inside the $15 budget."
   type        = number
-  default     = 50
+  default     = 10
 }
