@@ -13,14 +13,6 @@ variable "expected_account_id" {
 }
 
 
-# Budget and cost anomaly emails
-variable "alert_email" {
-  description = "Where budget and cost anomaly alerts go."
-  type        = string
-  default     = "neon1llc@gmail.com"
-}
-
-
 # A normal month is a few dollars, so this catches anything unplanned, tagged or not
 variable "monthly_budget_usd" {
   description = "Account-wide monthly spend that triggers an email (80% actual, 100% forecast)."
