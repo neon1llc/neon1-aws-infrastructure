@@ -1,7 +1,8 @@
 // site/functions/dev-auth.mjs - dev.neon1.tech's sign-in, a Lambda@Edge viewer-request function on
 // /__signin and /__auth only (site-dev/main.tf).
-//   1. /__signin, a fixed address to bookmark, sends the browser to the dev Cognito sign-in
-//      (a passkey or email code). A device already signed in goes straight home.
+//   1. /__signin?k=<link key>, a private address that only changes when someone changes it on
+//      purpose, shows the sign-in card; its button starts the dev Cognito sign-in (a passkey or
+//      email code). A device already signed in goes straight home. Without the key it's a 404.
 //   2. Cognito returns to /__auth with a code; a person in the dev-access group gets the 30-day
 //      n1dev cookie that dev-gate.js checks on every other request.
 // Every failure is the same not-found page dev-gate.js gives.
@@ -15,8 +16,8 @@ import { readFileSync } from "node:fs";
 const GATE = "n1dev";
 const START = "n1auth";
 const THIRTY_DAYS = 2592000;
-const TEN_MINUTES = 600;
-// How long the fetched key is reused, so a sign-out-all takes effect within a minute
+const ONE_HOUR = 3600;
+// How long fetched keys are reused, so a new link or a sign-out-all takes effect within a minute
 const KEY_CACHE_MS = 60000;
 
 
@@ -91,12 +92,38 @@ function claims(idToken) {
 }
 
 
+// --- The sign-in card ---
+
+
+// Its styles go in the page as they are, so the header policy can allow exactly them
+const CSS = readFileSync(new URL("./signin.css", import.meta.url), "utf8");
+
+/** The private sign-in card with one button, to the given Cognito address */
+function card(href, setCookie) {
+  const body = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer">' +
+    '<title>neon1 dev</title><meta name="robots" content="noindex"><style>' + CSS + '</style></head><body><main>' +
+    '<div class="brand"><span aria-hidden="true">∿</span><b><span class="ne">neon</span><span class="one">1</span></b></div>' +
+    '<h1>neon1 dev</h1><p>Private access.</p><a href="' + href.replace(/&/g, "&amp;") + '">Sign in</a></main></body></html>';
+  return {
+    status: "200",
+    statusDescription: "OK",
+    headers: {
+      "content-type": header("Content-Type", "text/html; charset=utf-8"),
+      "cache-control": header("Cache-Control", "no-store"),
+      "set-cookie": header("Set-Cookie", setCookie),
+    },
+    body,
+  };
+}
+
+
 // --- The handler, built from its dependencies so tests can supply fakes ---
 
 
 /**
- * config: { authDomain, clientId, issuer, publicUrl, group, sessionParam }
- * keys(): resolves { session } (the SSM SecureString that signs cookies)
+ * config: { authDomain, clientId, issuer, publicUrl, group, linkParam, sessionParam }
+ * keys(): resolves { link, session } (the two SSM SecureStrings)
  * post(url, form): resolves the token endpoint's JSON
  */
 export function makeHandler({ config, keys, post, now = () => Date.now() }) {
@@ -108,15 +135,15 @@ export function makeHandler({ config, keys, post, now = () => Date.now() }) {
     return Number(exp) > Math.floor(now() / 1000) && k.session.length >= 32 && same(mac || "", hmac(k.session, `${GATE}|${exp}`));
   }
 
-  // Step 1: start a Cognito sign-in bound to this browser
-  async function start(jar, k) {
-    if (k.session.length < 32) return closed();
+  // Step 1: with the link key, the card whose button starts a Cognito sign-in bound to this browser
+  async function start(params, jar, k) {
+    if (k.link.length < 32 || k.session.length < 32 || !same(params.get("k") || "", k.link)) return closed();
     if (signedIn(jar, k)) return redirect("/", []);
     const state = b64url(crypto.randomBytes(16));
     const verifier = b64url(crypto.randomBytes(32));
-    const exp = Math.floor(now() / 1000) + TEN_MINUTES;
+    const exp = Math.floor(now() / 1000) + ONE_HOUR;
     const value = `${state}.${verifier}.${exp}`;
-    const cookie = `${START}=${value}.${hmac(k.session, `${START}|${value}`)}; Max-Age=${TEN_MINUTES}; Path=/__auth; HttpOnly; Secure; SameSite=Lax`;
+    const cookie = `${START}=${value}.${hmac(k.session, `${START}|${value}`)}; Max-Age=${ONE_HOUR}; Path=/__auth; HttpOnly; Secure; SameSite=Lax`;
     const q = new URLSearchParams({
       response_type: "code",
       client_id: config.clientId,
@@ -127,7 +154,7 @@ export function makeHandler({ config, keys, post, now = () => Date.now() }) {
       code_challenge: b64url(crypto.createHash("sha256").update(verifier).digest()),
       code_challenge_method: "S256",
     });
-    return redirect(`https://${config.authDomain}/oauth2/authorize?${q}`, [cookie]);
+    return card(`https://${config.authDomain}/oauth2/authorize?${q}`, cookie);
   }
 
   // Step 2: Cognito's answer. Only the browser that used the link, and only a dev-access member
@@ -174,28 +201,28 @@ export function makeHandler({ config, keys, post, now = () => Date.now() }) {
     const params = new URLSearchParams(request.querystring || "");
     let k;
     try { k = await keys(); } catch { return closed(); }
-    if (request.uri === "/__signin") return start(cookies(request), k);
+    if (request.uri === "/__signin") return start(params, cookies(request), k);
     if (request.uri === "/__auth") return finish(params, cookies(request), k);
     return closed();
   };
 }
 
 
-// --- The deployed handler: config from Terraform, the key from SSM (us-east-1), the token endpoint by fetch ---
+// --- The deployed handler: config from Terraform, keys from SSM (us-east-1), the token endpoint by fetch ---
 
 
 let config;
 let cached = { at: 0, value: null };
 let live;
 
-/** The cookie key, fetched at most once a minute per edge location */
+/** The two keys, fetched at most once a minute per edge location */
 async function ssmKeys() {
   if (cached.value && Date.now() - cached.at < KEY_CACHE_MS) return cached.value;
   const { SSMClient, GetParametersCommand } = await import("@aws-sdk/client-ssm");
   const ssm = new SSMClient({ region: "us-east-1" });
-  const out = await ssm.send(new GetParametersCommand({ Names: [config.sessionParam], WithDecryption: true }));
+  const out = await ssm.send(new GetParametersCommand({ Names: [config.linkParam, config.sessionParam], WithDecryption: true }));
   const get = (name) => (out.Parameters || []).find((p) => p.Name === name)?.Value || "";
-  cached = { at: Date.now(), value: { session: get(config.sessionParam) } };
+  cached = { at: Date.now(), value: { link: get(config.linkParam), session: get(config.sessionParam) } };
   return cached.value;
 }
 

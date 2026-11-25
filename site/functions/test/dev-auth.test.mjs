@@ -8,10 +8,10 @@ import { readFileSync } from "node:fs";
 import { makeHandler } from "../dev-auth.mjs";
 
 
-// --- Fakes: the cookie key, a config like Terraform's, and a token endpoint that answers as told ---
+// --- Fakes: two keys, a config like Terraform's, and a token endpoint that answers as told ---
 
 
-const keys = { session: "S".repeat(43) };
+const keys = { link: "L".repeat(43), session: "S".repeat(43) };
 const config = {
   authDomain: "auth-dev.example",
   clientId: "client123",
@@ -44,9 +44,9 @@ function idToken(state, extra = {}) {
 
 /** Step 1: the state from the redirect and the cookie it sets */
 async function begin() {
-  const r = await handler(event("/__signin"));
-  assert.equal(r.status, "302");
-  const loc = new URL(r.headers.location[0].value);
+  const r = await handler(event("/__signin", `k=${keys.link}`));
+  assert.equal(r.status, "200");
+  const loc = new URL(/<a href="([^"]+)">Sign in/.exec(r.body)[1].replace(/&amp;/g, "&"));
   const cookie = r.headers["set-cookie"][0].value.split(";")[0];
   return { r, loc, state: loc.searchParams.get("state"), cookie };
 }
@@ -54,10 +54,29 @@ async function begin() {
 const set = (r) => r.headers["set-cookie"].map((h) => h.value);
 
 
-// --- Step 1: the fixed sign-in address ---
+// --- Step 1: the private sign-in address ---
 
 
-test("/__signin starts a PKCE sign-in at the dev pool, bound to this browser", async () => {
+test("without the right link key /__signin is the not-found page, signed in or not", async () => {
+  const exp = Math.floor(Date.now() / 1000) + 100;
+  const n1dev = `n1dev=${exp}.${crypto.createHmac("sha256", keys.session).update(`n1dev|${exp}`).digest("hex")}`;
+  const missing = (await handler(event("/anything-else"))).body;
+  for (const qs of ["", "k=", "k=nope", `k=${keys.link}x`]) {
+    for (const jar of ["", n1dev]) {
+      const r = await handler(event("/__signin", qs, jar));
+      assert.equal(r.status, "404", qs);
+      assert.equal(r.body, missing);
+    }
+  }
+});
+
+test("the page's styles are exactly signin.css, so the header's hash allows them", async () => {
+  const { r } = await begin();
+  assert.equal(/<style>([\s\S]*)<\/style>/.exec(r.body)[1], readFileSync(new URL("../signin.css", import.meta.url), "utf8"));
+  assert.ok(!r.body.includes(keys.link));
+});
+
+test("the link's card starts a PKCE sign-in at the dev pool, bound to this browser", async () => {
   const { r, loc, state, cookie } = await begin();
   assert.equal(loc.origin + loc.pathname, "https://auth-dev.example/oauth2/authorize");
   assert.equal(loc.searchParams.get("client_id"), "client123");
@@ -66,7 +85,7 @@ test("/__signin starts a PKCE sign-in at the dev pool, bound to this browser", a
   assert.equal(loc.searchParams.get("nonce"), state);
   assert.match(cookie, /^n1auth=/);
   const attrs = r.headers["set-cookie"][0].value;
-  for (const a of ["HttpOnly", "Secure", "Path=/__auth", "Max-Age=600"]) assert.match(attrs, new RegExp(a));
+  for (const a of ["HttpOnly", "Secure", "Path=/__auth", "Max-Age=3600"]) assert.match(attrs, new RegExp(a));
   // The challenge is the verifier the cookie carries, hashed
   const verifier = cookie.split("=")[1].split(".")[1];
   assert.equal(loc.searchParams.get("code_challenge"), crypto.createHash("sha256").update(verifier).digest("base64url"));
@@ -75,7 +94,7 @@ test("/__signin starts a PKCE sign-in at the dev pool, bound to this browser", a
 test("a signed-in device that opens /__signin goes straight home", async () => {
   const exp = Math.floor(Date.now() / 1000) + 100;
   const n1dev = `n1dev=${exp}.${crypto.createHmac("sha256", keys.session).update(`n1dev|${exp}`).digest("hex")}`;
-  assert.equal((await handler(event("/__signin", "", n1dev))).headers.location[0].value, "/");
+  assert.equal((await handler(event("/__signin", `k=${keys.link}`, n1dev))).headers.location[0].value, "/");
 });
 
 
@@ -141,11 +160,11 @@ test("back from adding a passkey: a signed-in device goes home, anyone else gets
   assert.equal((await handler(event("/__auth", "", `n1dev=${exp}.beef`))).status, "404");
 });
 
-test("a missing or short key keeps everything closed, as the not-found page", async () => {
-  const weak = makeHandler({ config, keys: async () => ({ session: "" }), post: async () => ({}) });
-  assert.equal((await weak(event("/__signin"))).status, "404");
+test("missing or short keys keep everything closed, as the not-found page", async () => {
+  const weak = makeHandler({ config, keys: async () => ({ link: "", session: "" }), post: async () => ({}) });
+  assert.equal((await weak(event("/__signin", "k="))).status, "404");
   const broken = makeHandler({ config, keys: async () => { throw new Error("ssm down"); }, post: async () => ({}) });
-  assert.equal((await broken(event("/__signin"))).status, "404");
+  assert.equal((await broken(event("/__signin", `k=${keys.link}`))).status, "404");
   const r = await handler(event("/anything-else"));
   assert.equal(r.status, "404");
   const router = readFileSync(new URL("../site-router.js", import.meta.url), "utf8");

@@ -1,7 +1,8 @@
 # site-dev/sign-in.tf - Who may sign in to dev.neon1.tech, and the edge function that checks it.
-# /__signin starts a sign-in at the 1NEON dev pool (auth-dev.neon1.tech); a passkey or email code
-# finishes it, and only members of its dev-access group get the cookie.
-# The cookie key is an SSM SecureString set by hand (neon1-site make dev-signout), never here.
+# /__signin?k=<link key> shows the sign-in card; its button starts a sign-in at the 1NEON dev pool
+# (auth-dev.neon1.tech), a passkey or email code finishes it, and only members of its dev-access
+# group get the cookie. Both keys are SSM SecureStrings set by hand (neon1-site make dev-relink /
+# dev-signout), never here.
 
 
 # --- The 1NEON dev pool (neon1-1NEON infra/envs/dev) and what this stack adds to it ---
@@ -16,7 +17,9 @@ locals {
   pool_id     = one(data.aws_cognito_user_pools.dev.ids)
   auth_domain = "auth-dev.${var.domain}"
 
-  # The key that signs the cookie (also in the store as "session", where dev-gate.js reads it)
+  # The two keys: the link opens the sign-in card; the session key signs the cookie (also in the
+  # store as "session", where dev-gate.js reads it)
+  link_param    = "/neon1-site/dev/link_key"
   session_param = "/neon1-site/dev/session_key"
 }
 
@@ -56,11 +59,21 @@ resource "aws_cognito_user_pool_client" "dev_gate" {
 }
 
 
-# Managed Login v2 shows a client only once it has a style; Cognito's default for now
+# The Cognito pages in neon1's colors and mark (cognito/, the same files as neon1-admin's)
 resource "aws_cognito_managed_login_branding" "dev_gate" {
   user_pool_id                = local.pool_id
   client_id                   = aws_cognito_user_pool_client.dev_gate.id
-  use_cognito_provided_values = true
+  settings  = file("${path.module}/cognito/branding.json")
+
+  dynamic "asset" {
+    for_each = { LIGHT = "light", DARK = "dark" }
+    content {
+      category   = "FORM_LOGO"
+      color_mode = asset.key
+      extension  = "PNG"
+      bytes      = filebase64("${path.module}/cognito/logo-${asset.value}.png")
+    }
+  }
 }
 
 
@@ -78,6 +91,11 @@ data "archive_file" "dev_auth" {
   }
 
   source {
+    filename = "signin.css"
+    content  = file("${path.module}/../site/functions/signin.css")
+  }
+
+  source {
     filename = "config.json"
     content = jsonencode({
       authDomain   = local.auth_domain
@@ -85,6 +103,7 @@ data "archive_file" "dev_auth" {
       issuer       = "https://cognito-idp.us-east-1.amazonaws.com/${local.pool_id}"
       publicUrl    = "https://${local.host}"
       group        = aws_cognito_user_group.dev_access.name
+      linkParam    = local.link_param
       sessionParam = local.session_param
     })
   }
@@ -105,17 +124,17 @@ data "aws_iam_policy_document" "dev_auth_trust" {
 
 resource "aws_iam_role" "dev_auth" {
   name               = "neon1-dev-auth"
-  description        = "dev.neon1.tech sign-in function: reads its cookie key, writes its logs"
+  description        = "dev.neon1.tech sign-in function: reads its two keys, writes its logs"
   assume_role_policy = data.aws_iam_policy_document.dev_auth_trust.json
 }
 
 
-# Its key, and logs in whichever region a copy runs (named us-east-1.neon1-dev-auth there)
+# Its two keys, and logs in whichever region a copy runs (named us-east-1.neon1-dev-auth there)
 data "aws_iam_policy_document" "dev_auth" {
   statement {
-    sid       = "Key"
+    sid       = "Keys"
     actions   = ["ssm:GetParameters"]
-    resources = ["arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter${local.session_param}"]
+    resources = ["arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/neon1-site/dev/*_key"]
   }
 
   statement {
