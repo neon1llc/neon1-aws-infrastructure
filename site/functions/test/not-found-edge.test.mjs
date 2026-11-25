@@ -53,9 +53,11 @@ test("nothing from S3 reaches the visitor", async () => {
   assert.doesNotMatch(r.body, /NoSuchKey|AmazonS3|releases\/|RequestId|amz/i);
 });
 
-test("a server error is a bare 503 and nothing more", async () => {
+test("a server error is the same page as a 503", async () => {
   const r = await handler(origin(500));
   assert.equal(r.status, "503");
+  assert.match(r.body, /data-text="503">503/);
+  assert.match(r.body, /not-found\.css/);
   assert.doesNotMatch(r.body, /xml|S3|amz/i);
 });
 

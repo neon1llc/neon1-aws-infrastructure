@@ -11,8 +11,14 @@ const NOT_FOUND = '<!doctype html><html lang="en"><head><meta charset="utf-8">' 
   '<link rel="stylesheet" href="/shared/neon1.css"><link rel="stylesheet" href="/shared/not-found.css">' +
   '</head><body><canvas id="rain" aria-hidden="true"></canvas><canvas id="lens" aria-hidden="true"></canvas>' +
   '<main class="nf glass glass-pane"><h1 class="glitch" data-text="404">404</h1>' +
-  '<p>There\'s nothing at this address.</p><a href="/">Back to neon1.tech</a></main>' +
+  '<p>There\'s nothing at this address.</p><a href="https://neon1.tech/">Back to neon1.tech</a></main>' +
   '<script type="module" src="/shared/not-found.js"></script></body></html>';
+
+
+// The same page for a server error
+const UNAVAILABLE = NOT_FOUND.replace("neon1 · not found", "neon1 · unavailable")
+  .replace('data-text="404">404', 'data-text="503">503')
+  .replace("There's nothing at this address.", "This page can't load right now. Try again shortly.");
 
 
 // Headers CloudFront forbids an origin-response function to drop (Transfer-Encoding, Via); it rejects the reply with a 502 if they go
@@ -30,11 +36,11 @@ function reply(original, status, description, type, body) {
 }
 
 
-/** S3's errors become the not-found page (client errors) or a bare 503 (server errors); the rest pass through */
+/** S3's errors become the not-found page (client errors) or the same page as a 503 (server errors); the rest pass through */
 export const handler = async (event) => {
   const response = event.Records[0].cf.response;
   const status = Number(response.status);
   if (status < 400) return response;
-  if (status >= 500) return reply(response, "503", "Service Unavailable", "text/plain; charset=utf-8", "Try again shortly");
+  if (status >= 500) return reply(response, "503", "Service Unavailable", "text/html; charset=utf-8", UNAVAILABLE);
   return reply(response, "404", "Not Found", "text/html; charset=utf-8", NOT_FOUND);
 };

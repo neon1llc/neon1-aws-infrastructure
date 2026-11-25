@@ -7,7 +7,7 @@ var NOT_FOUND = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '<link rel="stylesheet" href="/shared/neon1.css"><link rel="stylesheet" href="/shared/not-found.css">' +
   '</head><body><canvas id="rain" aria-hidden="true"></canvas><canvas id="lens" aria-hidden="true"></canvas>' +
   '<main class="nf glass glass-pane"><h1 class="glitch" data-text="404">404</h1>' +
-  '<p>There\'s nothing at this address.</p><a href="/">Back to neon1.tech</a></main>' +
+  '<p>There\'s nothing at this address.</p><a href="https://neon1.tech/">Back to neon1.tech</a></main>' +
   '<script type="module" src="/shared/not-found.js"></script></body></html>';
 function query(request) {
   var qs = request.querystring, parts = [];
@@ -81,7 +81,7 @@ function portalHandler(event) {
       statusCode: 404,
       statusDescription: "Not Found",
       headers: { "content-type": { value: "text/html; charset=utf-8" }, "cache-control": { value: "no-store" } },
-      body: { encoding: "text", data: '<!doctype html><html lang="en"><meta charset="utf-8"><title>neon1 · not found</title><meta name="robots" content="noindex"><p>There\'s nothing at this address. <a href="/1NEON/">Go to 1NEON</a></p></html>' },
+      body: { encoding: "text", data: NOT_FOUND },
     };
   }
   if (uri.lastIndexOf(".") > uri.lastIndexOf("/")) return request;
@@ -90,6 +90,7 @@ function portalHandler(event) {
 }
 var GATE = "n1dev";
 var PREVIEW = "n1preview";
+var PAGE_FILES = /^\/(shared\/(neon1\.css|not-found\.css|not-found\.js|rain\.js)|fonts\/[a-z0-9-]+\.woff2|favicon[a-z0-9.-]*)$/;
 var BRANCH = /^[a-z0-9][a-z0-9-]{0,39}$/;
 async function sessionKey() {
   try { return await kvs.get("session"); } catch (e) { return ""; }
@@ -110,11 +111,11 @@ function closed() {
     statusCode: 404,
     statusDescription: "Not Found",
     headers: {
-      "content-type": { value: "text/plain; charset=utf-8" },
+      "content-type": { value: "text/html; charset=utf-8" },
       "cache-control": { value: "no-store" },
       "x-robots-tag": { value: "noindex, nofollow" },
     },
-    body: { encoding: "text", data: "Not found" },
+    body: { encoding: "text", data: NOT_FOUND },
   };
 }
 function home(name, value, attributes) {
@@ -137,8 +138,7 @@ async function handler(event) {
   var uri = request.uri;
   var key = await sessionKey();
   var now = Math.floor(Date.now() / 1000);
-  if (key.length < 32) return closed();
-  if (!signedIn(request, key, now)) return closed();
+  if (key.length < 32 || !signedIn(request, key, now)) return PAGE_FILES.test(uri) ? siteHandler(event) : closed();
   if (uri === "/__signout") return home(GATE, "", "");
   if (uri === "/__preview") {
     var b = param(request, "b");

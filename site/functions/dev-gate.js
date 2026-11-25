@@ -5,7 +5,8 @@
 // Nothing is served without a signed cookie. The sign-in function (dev-auth.mjs, Lambda@Edge on
 // /__signin and /__auth) sets it for 30 days after the secret link and a dev-access sign-in; it is
 // signed with the store's "session" key, so changing that key signs every device out. Anyone
-// without the cookie gets a bare 404 that says nothing about what's here.
+// without the cookie gets neon1.tech's own not-found page with a 404, the same as any unknown
+// address, so nothing says what's here. Only that page's public files pass without a cookie.
 
 import crypto from 'crypto';
 
@@ -13,6 +14,8 @@ import crypto from 'crypto';
 // Cookie names and lifetime
 var GATE = "n1dev";
 var PREVIEW = "n1preview";
+// The files the not-found page loads, all public on neon1.tech
+var PAGE_FILES = /^\/(shared\/(neon1\.css|not-found\.css|not-found\.js|rain\.js)|fonts\/[a-z0-9-]+\.woff2|favicon[a-z0-9.-]*)$/;
 // Branch preview names, as the dev deploy writes them (lowercase, digits, and dashes)
 var BRANCH = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
@@ -43,17 +46,17 @@ function param(request, name) {
 }
 
 
-// A bare 404 that is never cached and never indexed
+// The not-found page with a 404, never cached and never indexed
 function closed() {
   return {
     statusCode: 404,
     statusDescription: "Not Found",
     headers: {
-      "content-type": { value: "text/plain; charset=utf-8" },
+      "content-type": { value: "text/html; charset=utf-8" },
       "cache-control": { value: "no-store" },
       "x-robots-tag": { value: "noindex, nofollow" },
     },
-    body: { encoding: "text", data: "Not found" },
+    body: { encoding: "text", data: NOT_FOUND },
   };
 }
 
@@ -87,8 +90,7 @@ async function handler(event) {
   var uri = request.uri;
   var key = await sessionKey();
   var now = Math.floor(Date.now() / 1000);
-  if (key.length < 32) return closed();
-  if (!signedIn(request, key, now)) return closed();
+  if (key.length < 32 || !signedIn(request, key, now)) return PAGE_FILES.test(uri) ? siteHandler(event) : closed();
 
   // Sign out, and pick or drop a branch preview (a session cookie; /__preview alone goes back to dev)
   if (uri === "/__signout") return home(GATE, "", "");

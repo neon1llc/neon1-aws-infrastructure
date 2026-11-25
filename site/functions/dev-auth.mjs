@@ -1,9 +1,10 @@
 // site/functions/dev-auth.mjs - dev.neon1.tech's sign-in, a Lambda@Edge viewer-request function on
-// /__signin and /__auth only (site-dev/main.tf). Two steps, both required:
-//   1. /__signin?k=<link key> (the secret link) sends the browser to the dev Cognito sign-in.
+// /__signin and /__auth only (site-dev/main.tf).
+//   1. /__signin, a fixed address to bookmark, sends the browser to the dev Cognito sign-in
+//      (a passkey or email code). A device already signed in goes straight home.
 //   2. Cognito returns to /__auth with a code; a person in the dev-access group gets the 30-day
 //      n1dev cookie that dev-gate.js checks on every other request.
-// Every failure is the same bare 404 dev-gate.js gives, so a stranger learns nothing either way.
+// Every failure is the same not-found page dev-gate.js gives.
 // Lambda@Edge has no environment variables: config.json beside this file is written by Terraform.
 
 import crypto from "node:crypto";
@@ -15,7 +16,7 @@ const GATE = "n1dev";
 const START = "n1auth";
 const THIRTY_DAYS = 2592000;
 const TEN_MINUTES = 600;
-// How long fetched keys are reused, so a new link or a sign-out-all takes effect within a minute
+// How long the fetched key is reused, so a sign-out-all takes effect within a minute
 const KEY_CACHE_MS = 60000;
 
 
@@ -46,17 +47,27 @@ function cookies(request) {
 /** A Lambda@Edge response header list */
 const header = (key, value) => [{ key, value }];
 
-/** The bare 404 dev-gate.js gives, never cached and never indexed */
+// The not-found page; must match NOT_FOUND in site-router.js (a test checks)
+const NOT_FOUND = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+  '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+  '<title>neon1 · not found</title><meta name="robots" content="noindex">' +
+  '<link rel="stylesheet" href="/shared/neon1.css"><link rel="stylesheet" href="/shared/not-found.css">' +
+  '</head><body><canvas id="rain" aria-hidden="true"></canvas><canvas id="lens" aria-hidden="true"></canvas>' +
+  '<main class="nf glass glass-pane"><h1 class="glitch" data-text="404">404</h1>' +
+  '<p>There\'s nothing at this address.</p><a href="https://neon1.tech/">Back to neon1.tech</a></main>' +
+  '<script type="module" src="/shared/not-found.js"></script></body></html>';
+
+/** The not-found page dev-gate.js gives, never cached and never indexed */
 function closed() {
   return {
     status: "404",
     statusDescription: "Not Found",
     headers: {
-      "content-type": header("Content-Type", "text/plain; charset=utf-8"),
+      "content-type": header("Content-Type", "text/html; charset=utf-8"),
       "cache-control": header("Cache-Control", "no-store"),
       "x-robots-tag": header("X-Robots-Tag", "noindex, nofollow"),
     },
-    body: "Not found",
+    body: NOT_FOUND,
   };
 }
 
@@ -84,16 +95,23 @@ function claims(idToken) {
 
 
 /**
- * config: { authDomain, clientId, issuer, publicUrl, group, linkParam, sessionParam }
- * keys(): resolves { link, session } (the two SSM SecureStrings)
+ * config: { authDomain, clientId, issuer, publicUrl, group, sessionParam }
+ * keys(): resolves { session } (the SSM SecureString that signs cookies)
  * post(url, form): resolves the token endpoint's JSON
  */
 export function makeHandler({ config, keys, post, now = () => Date.now() }) {
   const callback = `${config.publicUrl}/__auth`;
 
-  // Step 1: the secret link. A right key starts a Cognito sign-in bound to this browser
-  async function start(params, k) {
-    if (k.link.length < 32 || k.session.length < 32 || !same(params.get("k") || "", k.link)) return closed();
+  // A device with a current cookie
+  function signedIn(jar, k) {
+    const [exp, mac] = (jar[GATE] || "").split(".");
+    return Number(exp) > Math.floor(now() / 1000) && k.session.length >= 32 && same(mac || "", hmac(k.session, `${GATE}|${exp}`));
+  }
+
+  // Step 1: start a Cognito sign-in bound to this browser
+  async function start(jar, k) {
+    if (k.session.length < 32) return closed();
+    if (signedIn(jar, k)) return redirect("/", []);
     const state = b64url(crypto.randomBytes(16));
     const verifier = b64url(crypto.randomBytes(32));
     const exp = Math.floor(now() / 1000) + TEN_MINUTES;
@@ -117,10 +135,7 @@ export function makeHandler({ config, keys, post, now = () => Date.now() }) {
     const t = Math.floor(now() / 1000);
 
     // Back from adding a passkey (no code): a signed-in device just goes home
-    if (!params.get("code")) {
-      const [exp, mac] = (jar[GATE] || "").split(".");
-      return Number(exp) > t && k.session.length >= 32 && same(mac || "", hmac(k.session, `${GATE}|${exp}`)) ? redirect("/", []) : closed();
-    }
+    if (!params.get("code")) return signedIn(jar, k) ? redirect("/", []) : closed();
 
     const parts = (jar[START] || "").split(".");
     if (parts.length !== 4 || k.session.length < 32) return closed();
@@ -159,28 +174,28 @@ export function makeHandler({ config, keys, post, now = () => Date.now() }) {
     const params = new URLSearchParams(request.querystring || "");
     let k;
     try { k = await keys(); } catch { return closed(); }
-    if (request.uri === "/__signin") return start(params, k);
+    if (request.uri === "/__signin") return start(cookies(request), k);
     if (request.uri === "/__auth") return finish(params, cookies(request), k);
     return closed();
   };
 }
 
 
-// --- The deployed handler: config from Terraform, keys from SSM (us-east-1), the token endpoint by fetch ---
+// --- The deployed handler: config from Terraform, the key from SSM (us-east-1), the token endpoint by fetch ---
 
 
 let config;
 let cached = { at: 0, value: null };
 let live;
 
-/** The two keys, fetched at most once a minute per edge location */
+/** The cookie key, fetched at most once a minute per edge location */
 async function ssmKeys() {
   if (cached.value && Date.now() - cached.at < KEY_CACHE_MS) return cached.value;
   const { SSMClient, GetParametersCommand } = await import("@aws-sdk/client-ssm");
   const ssm = new SSMClient({ region: "us-east-1" });
-  const out = await ssm.send(new GetParametersCommand({ Names: [config.linkParam, config.sessionParam], WithDecryption: true }));
+  const out = await ssm.send(new GetParametersCommand({ Names: [config.sessionParam], WithDecryption: true }));
   const get = (name) => (out.Parameters || []).find((p) => p.Name === name)?.Value || "";
-  cached = { at: Date.now(), value: { link: get(config.linkParam), session: get(config.sessionParam) } };
+  cached = { at: Date.now(), value: { session: get(config.sessionParam) } };
   return cached.value;
 }
 

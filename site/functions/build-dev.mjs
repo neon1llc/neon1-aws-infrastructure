@@ -22,16 +22,16 @@ function part(name, rename) {
 }
 
 // Top-level functions a later part declares again (query, redirect) are dropped from it: the copies
-// match, and a module can't declare one name twice
+// match, and a module can't declare one name twice. The not-found page repeats the same way
 function dedupe(code, seen) {
   const kept = [];
   let skipping = false;
   for (const line of code.split("\n")) {
-    const m = /^(?:async )?function (\w+)\(/.exec(line);
+    const m = /^(?:async )?function (\w+)\(/.exec(line) || /^var (NOT_FOUND) =/.exec(line);
     if (m && seen.has(m[1])) skipping = true;
     else if (m) seen.add(m[1]);
     if (!skipping) kept.push(line);
-    if (skipping && line === "}") skipping = false;
+    if (skipping && (line === "}" || line.endsWith("</html>';"))) skipping = false;
   }
   return kept.join("\n");
 }

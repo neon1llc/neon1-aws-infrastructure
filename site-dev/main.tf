@@ -1,6 +1,6 @@
 # site-dev/main.tf - dev.neon1.tech: a private copy of neon1.tech for looking at changes before they
 # ship. Its own bucket, distribution, release store, and one function (site/functions/dev-router.js)
-# that turns away anyone without the signed cookie sign-in sets (sign-in.tf). Nothing here is shared with
+# that shows the not-found page to anyone without the signed cookie sign-in sets (sign-in.tf). Nothing here is shared with
 # the live site except the certificate, the hosted zone, and (read-only) the assistant's API.
 
 
