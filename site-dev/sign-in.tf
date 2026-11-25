@@ -1,7 +1,8 @@
 # site-dev/sign-in.tf - Who may sign in to dev.neon1.tech, and the edge function that checks it.
-# The secret link (/__signin?k=...) only starts a sign-in at the 1NEON dev pool (auth-dev.neon1.tech);
-# a passkey or email code finishes it, and only members of its dev-access group get the cookie.
-# Both keys are SSM SecureStrings set by hand (neon1-site make dev-gate / dev-signout), never here.
+# /__signin?k=<link key> shows the sign-in card; its button starts a sign-in at the 1NEON dev pool
+# (auth-dev.neon1.tech), a passkey or email code finishes it, and only members of its dev-access
+# group get the cookie. Both keys are SSM SecureStrings set by hand (neon1-site make dev-relink /
+# dev-signout), never here.
 
 
 # --- The 1NEON dev pool (neon1-1NEON infra/envs/dev) and what this stack adds to it ---
@@ -16,8 +17,8 @@ locals {
   pool_id     = one(data.aws_cognito_user_pools.dev.ids)
   auth_domain = "auth-dev.${var.domain}"
 
-  # The two keys: the link starts a sign-in; the session key signs the cookie (also in the store as
-  # "session", where dev-gate.js reads it)
+  # The two keys: the link opens the sign-in card; the session key signs the cookie (also in the
+  # store as "session", where dev-gate.js reads it)
   link_param    = "/neon1-site/dev/link_key"
   session_param = "/neon1-site/dev/session_key"
 }
@@ -58,11 +59,21 @@ resource "aws_cognito_user_pool_client" "dev_gate" {
 }
 
 
-# Managed Login v2 shows a client only once it has a style; Cognito's default for now
+# The Cognito pages in neon1's colors and mark (cognito/, the same files as neon1-admin's)
 resource "aws_cognito_managed_login_branding" "dev_gate" {
-  user_pool_id                = local.pool_id
-  client_id                   = aws_cognito_user_pool_client.dev_gate.id
-  use_cognito_provided_values = true
+  user_pool_id = local.pool_id
+  client_id    = aws_cognito_user_pool_client.dev_gate.id
+  settings     = file("${path.module}/cognito/branding.json")
+
+  dynamic "asset" {
+    for_each = { LIGHT = "light", DARK = "dark" }
+    content {
+      category   = "FORM_LOGO"
+      color_mode = asset.key
+      extension  = "PNG"
+      bytes      = filebase64("${path.module}/cognito/logo-${asset.value}.png")
+    }
+  }
 }
 
 
@@ -77,6 +88,11 @@ data "archive_file" "dev_auth" {
   source {
     filename = "index.mjs"
     content  = file("${path.module}/../site/functions/dev-auth.mjs")
+  }
+
+  source {
+    filename = "signin.css"
+    content  = file("${path.module}/../site/functions/signin.css")
   }
 
   source {
@@ -154,7 +170,7 @@ data "aws_caller_identity" "current" {}
 # after a change, so a destroy here can take a while
 resource "aws_lambda_function" "dev_auth" {
   function_name    = "neon1-dev-auth"
-  description      = "dev.neon1.tech sign-in: secret link, then a dev-access sign-in"
+  description      = "dev.neon1.tech sign-in for dev-access members"
   role             = aws_iam_role.dev_auth.arn
   runtime          = "nodejs22.x"
   handler          = "index.handler"

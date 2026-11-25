@@ -4,7 +4,13 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
+## v0.14.0 - 2026-11-25
+
 - `account/`: an outside check of neon1.tech. A Route 53 health check asks the home page every 30 seconds, and a CloudWatch alarm emails when it fails three checks in a row or stops reporting. Apply by hand. The alert topic is encrypted with its own key. A small function turns each change into a short email through neon1-notify, saying the site is down or back up, with a link.
+- `catchall/` (new): every other `neon1.tech` name, such as `test.neon1.tech`, shows the not-found page with a 404 through a wildcard record and its own distribution, instead of the browser's own error. Exact names are unchanged.
+- `site/` and `site-dev/`: one error page. A server error from the site's files is the same page as a 503, `/1NEONx` shows the same 404 as any unknown address, and its link goes to `https://neon1.tech/`. Applied to dev.
+- `site-dev/`: signed out, every dev address shows that page instead of bare text. Sign-in starts at a private link, `/__signin?k=<key>`, that no longer rotates in everyday use; without the key it's the same 404. It shows a neon1 sign-in card, and the Cognito pages use neon1's colors and mark. Applied to dev.
+- `site/` and `site-dev/`: a missing file, dotfile, or sourcemap (`/.env`, `/x.js`, anything with a dot in its last segment) now returns the not-found page with a 404 instead of S3's XML error, which named the release folder and carried request IDs. An origin-response Lambda@Edge on the two S3 behaviors replaces every S3 client error, and the headers policies drop `Server`, `x-amz-version-id`, and `x-amz-server-side-encryption`. API errors pass through unchanged. Applied to dev.
 - `github/`: the dev 1NEON boundary grants texts only when `portal_dev_sms_sender_arn` is set, and the CI plan no longer reads an SSM parameter for it. With no sender set, dev can send no texts, as before.
 
 ## v0.13.0 - 2026-11-17

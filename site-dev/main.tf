@@ -1,6 +1,6 @@
 # site-dev/main.tf - dev.neon1.tech: a private copy of neon1.tech for looking at changes before they
 # ship. Its own bucket, distribution, release store, and one function (site/functions/dev-router.js)
-# that turns away anyone without the signed cookie sign-in sets (sign-in.tf). Nothing here is shared with
+# that shows the not-found page to anyone without the signed cookie sign-in sets (sign-in.tf). Nothing here is shared with
 # the live site except the certificate, the hosted zone, and (read-only) the assistant's API.
 
 
@@ -28,7 +28,9 @@ locals {
     "frame-ancestors 'none'",
   ]
   csp = {
-    site = join("; ", concat(local.csp_common, ["connect-src 'self'", "upgrade-insecure-requests"]))
+    # The sign-in card: its own styles, by hash, and the shared fonts
+    signin = "default-src 'none'; style-src 'sha256-${base64sha256(file("${path.module}/../site/functions/signin.css"))}'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    site   = join("; ", concat(local.csp_common, ["connect-src 'self'", "upgrade-insecure-requests"]))
     # The portal also loads Cloudflare Turnstile, the bot check on its sign-up form (script and its frame)
     portal = join("; ", concat(
       [for d in local.csp_common : d == "script-src 'self'" ? "script-src 'self' https://challenges.cloudflare.com" : d],
@@ -238,6 +240,16 @@ resource "aws_cloudfront_response_headers_policy" "dev" {
       override = true
     }
   }
+
+  # S3's own headers say what the origin is and name object versions
+  remove_headers_config {
+    dynamic "items" {
+      for_each = toset(["Server", "x-amz-version-id", "x-amz-server-side-encryption"])
+      content {
+        header = items.value
+      }
+    }
+  }
 }
 
 
@@ -284,6 +296,13 @@ resource "aws_cloudfront_distribution" "dev" {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.dev_router.arn
     }
+
+    # S3's errors never reach a visitor (not-found.tf)
+    lambda_function_association {
+      event_type   = "origin-response"
+      lambda_arn   = aws_lambda_function.dev_not_found.qualified_arn
+      include_body = false
+    }
   }
 
   # Sign-in (sign-in.tf): the edge function answers every request itself, so the origin is never
@@ -297,7 +316,7 @@ resource "aws_cloudfront_distribution" "dev" {
       allowed_methods            = ["GET", "HEAD"]
       cached_methods             = ["GET", "HEAD"]
       cache_policy_id            = local.caching_disabled_policy
-      response_headers_policy_id = aws_cloudfront_response_headers_policy.dev["site"].id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.dev["signin"].id
 
       lambda_function_association {
         event_type   = "viewer-request"
@@ -411,6 +430,12 @@ resource "aws_cloudfront_distribution" "dev" {
       function_association {
         event_type   = "viewer-request"
         function_arn = aws_cloudfront_function.dev_router.arn
+      }
+
+      lambda_function_association {
+        event_type   = "origin-response"
+        lambda_arn   = aws_lambda_function.dev_not_found.qualified_arn
+        include_body = false
       }
     }
   }

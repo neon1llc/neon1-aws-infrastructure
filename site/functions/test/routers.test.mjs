@@ -52,6 +52,7 @@ test("paths that only start with the letters 1NEON are not the portal", async ()
     const r = (await portal(event(uri)));
     assert.equal(r.statusCode, 404, uri);
     assert.equal(r.headers["cache-control"].value, "no-store");
+    assert.equal(r.body.data, (await site(event("/nope"))).body.data);
   }
 });
 
@@ -178,6 +179,14 @@ test("dev: nothing is served without the cookie, and a wrong key or forged cooki
   assert.equal((await dev(devEvent("/", { cookies: { n1dev: `${future}.deadbeef` } }))).statusCode, 404);
 });
 
+test("dev: a stranger gets neon1.tech's not-found page, and only the files it loads", async () => {
+  const page = (await site(event("/nope"))).body.data;
+  for (const uri of ["/", "/blog/", "/1NEON/", "/1NEON/api/me", "/__preview"]) assert.equal((await dev(devEvent(uri))).body.data, page, uri);
+  for (const uri of ["/shared/neon1.css", "/shared/not-found.css", "/shared/not-found.js", "/shared/rain.js"]) assert.equal((await dev(devEvent(uri))).uri, "/releases/aaaaaaaaaaaa" + uri, uri);
+  assert.equal((await dev(devEvent("/fonts/figtree-latin-wght-normal.woff2"))).uri, "/fonts/figtree-latin-wght-normal.woff2");
+  for (const uri of ["/shared/site.js", "/shared/neon1.css.map", "/fonts/../index.html", "/css/site.css", "/index.html"]) assert.equal((await dev(devEvent(uri))).statusCode, 404, uri);
+});
+
 test("dev: a signed-in device reaches the site, the portal, and the APIs", async () => {
   const n1dev = await signIn();
   assert.equal((await dev(devEvent("/", { cookies: { n1dev } }))).uri, "/releases/aaaaaaaaaaaa/index.html");
@@ -223,4 +232,20 @@ test("site router: documents that moved to the Engagement shelf redirect, page a
   assert.equal(await to("/knowledge/services/services/"), "/knowledge/engagement/services/");
   assert.equal(await to("/knowledge/policies/service-agreement/"), "/knowledge/engagement/service-agreement/");
   assert.equal(await to("/knowledge/services/"), "/knowledge/#engagement");
+});
+
+
+// --- catchall.js: every name no other distribution claims ---
+
+
+test("catchall: any address is the site's not-found page, and only the files it loads pass", async () => {
+  const code = readFileSync(new URL("../catchall.js", import.meta.url), "utf8");
+  const catchall = new Function(code + "\nreturn handler;")();
+  const page = (await site(event("/nope"))).body.data;
+  for (const uri of ["/", "/1NEON/api/me", "/index.html", "/.env", "/shared/site.js"]) {
+    const r = catchall(event(uri, { host: "test.neon1.tech" }));
+    assert.equal(r.statusCode, 404, uri);
+    assert.equal(r.body.data, page, uri);
+  }
+  assert.equal(catchall(event("/shared/not-found.css", { host: "test.neon1.tech" })).uri, "/shared/not-found.css");
 });

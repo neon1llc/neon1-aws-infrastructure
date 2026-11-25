@@ -4,6 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
 import { makeHandler } from "../dev-auth.mjs";
 
 
@@ -41,11 +42,11 @@ function idToken(state, extra = {}) {
   return jwt({ iss: config.issuer, aud: config.clientId, token_use: "id", nonce: state, exp: Math.floor(Date.now() / 1000) + 300, "cognito:groups": ["dev-access"], ...extra });
 }
 
-/** Step 1 with the right link: the state from the redirect and the cookie it sets */
+/** Step 1: the state from the redirect and the cookie it sets */
 async function begin() {
   const r = await handler(event("/__signin", `k=${keys.link}`));
-  assert.equal(r.status, "302");
-  const loc = new URL(r.headers.location[0].value);
+  assert.equal(r.status, "200");
+  const loc = new URL(/<a href="([^"]+)">Sign in/.exec(r.body)[1].replace(/&amp;/g, "&"));
   const cookie = r.headers["set-cookie"][0].value.split(";")[0];
   return { r, loc, state: loc.searchParams.get("state"), cookie };
 }
@@ -53,19 +54,29 @@ async function begin() {
 const set = (r) => r.headers["set-cookie"].map((h) => h.value);
 
 
-// --- Step 1: the secret link ---
+// --- Step 1: the private sign-in address ---
 
 
-test("a wrong, empty, or missing link key gets the bare 404", async () => {
+test("without the right link key /__signin is the not-found page, signed in or not", async () => {
+  const exp = Math.floor(Date.now() / 1000) + 100;
+  const n1dev = `n1dev=${exp}.${crypto.createHmac("sha256", keys.session).update(`n1dev|${exp}`).digest("hex")}`;
+  const missing = (await handler(event("/anything-else"))).body;
   for (const qs of ["", "k=", "k=nope", `k=${keys.link}x`]) {
-    const r = await handler(event("/__signin", qs));
-    assert.equal(r.status, "404", qs);
-    assert.equal(r.body, "Not found");
-    assert.equal(r.headers["cache-control"][0].value, "no-store");
+    for (const jar of ["", n1dev]) {
+      const r = await handler(event("/__signin", qs, jar));
+      assert.equal(r.status, "404", qs);
+      assert.equal(r.body, missing);
+    }
   }
 });
 
-test("the right link starts a PKCE sign-in at the dev pool, bound to this browser", async () => {
+test("the page's styles are exactly signin.css, so the header's hash allows them", async () => {
+  const { r } = await begin();
+  assert.equal(/<style>([\s\S]*)<\/style>/.exec(r.body)[1], readFileSync(new URL("../signin.css", import.meta.url), "utf8"));
+  assert.ok(!r.body.includes(keys.link));
+});
+
+test("the link's card starts a PKCE sign-in at the dev pool, bound to this browser", async () => {
   const { r, loc, state, cookie } = await begin();
   assert.equal(loc.origin + loc.pathname, "https://auth-dev.example/oauth2/authorize");
   assert.equal(loc.searchParams.get("client_id"), "client123");
@@ -74,12 +85,16 @@ test("the right link starts a PKCE sign-in at the dev pool, bound to this browse
   assert.equal(loc.searchParams.get("nonce"), state);
   assert.match(cookie, /^n1auth=/);
   const attrs = r.headers["set-cookie"][0].value;
-  for (const a of ["HttpOnly", "Secure", "Path=/__auth", "Max-Age=600"]) assert.match(attrs, new RegExp(a));
+  for (const a of ["HttpOnly", "Secure", "Path=/__auth", "Max-Age=3600"]) assert.match(attrs, new RegExp(a));
   // The challenge is the verifier the cookie carries, hashed
   const verifier = cookie.split("=")[1].split(".")[1];
   assert.equal(loc.searchParams.get("code_challenge"), crypto.createHash("sha256").update(verifier).digest("base64url"));
-  // The link key itself never leaves in the redirect
-  assert.ok(!r.headers.location[0].value.includes(keys.link));
+});
+
+test("a signed-in device that opens /__signin goes straight home", async () => {
+  const exp = Math.floor(Date.now() / 1000) + 100;
+  const n1dev = `n1dev=${exp}.${crypto.createHmac("sha256", keys.session).update(`n1dev|${exp}`).digest("hex")}`;
+  assert.equal((await handler(event("/__signin", `k=${keys.link}`, n1dev))).headers.location[0].value, "/");
 });
 
 
@@ -113,7 +128,7 @@ test("someone outside the group, or a token for another client or pool, gets the
   }
 });
 
-test("no link cookie, a forged or expired one, or a mismatched state never reaches Cognito", async () => {
+test("no sign-in cookie, a forged or expired one, or a mismatched state never reaches Cognito", async () => {
   const { state, cookie } = await begin();
   answer = () => { throw new Error("should not be called"); };
   posted = [];
@@ -145,10 +160,14 @@ test("back from adding a passkey: a signed-in device goes home, anyone else gets
   assert.equal((await handler(event("/__auth", "", `n1dev=${exp}.beef`))).status, "404");
 });
 
-test("missing or short keys keep everything closed", async () => {
+test("missing or short keys keep everything closed, as the not-found page", async () => {
   const weak = makeHandler({ config, keys: async () => ({ link: "", session: "" }), post: async () => ({}) });
   assert.equal((await weak(event("/__signin", "k="))).status, "404");
   const broken = makeHandler({ config, keys: async () => { throw new Error("ssm down"); }, post: async () => ({}) });
   assert.equal((await broken(event("/__signin", `k=${keys.link}`))).status, "404");
-  assert.equal((await handler(event("/anything-else"))).status, "404");
+  const r = await handler(event("/anything-else"));
+  assert.equal(r.status, "404");
+  const router = readFileSync(new URL("../site-router.js", import.meta.url), "utf8");
+  const page = (code) => /NOT_FOUND = ([\s\S]*?<\/html>';)/.exec(code)[1];
+  assert.equal(r.body, new Function("return " + page(router))());
 });

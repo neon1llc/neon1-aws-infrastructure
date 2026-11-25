@@ -1,0 +1,17 @@
+/* site/functions/signin.css - The dev sign-in card, the same as admin-dev's (neon1-admin src/style.css, .sign-in-*).
+   dev-auth.mjs puts it in the page, and the header policy allows exactly these bytes (sign-in.tf). */
+:root { color-scheme: light dark; --page: #f2f4f2; --panel: #fff; --text: #12241a; --muted: #596a5e; --line: #d7e0d8; --accent: #035704; --ink: #fff; --shadow: 0 8px 24px rgb(16 36 26 / 7%); }
+@media (prefers-color-scheme: dark) { :root { --page: #0d1210; --panel: #141c17; --text: #edf1ed; --muted: #a8b5aa; --line: #2a392e; --accent: #6cffa8; --ink: #0c2113; --shadow: 0 14px 34px rgb(0 0 0 / 16%); } }
+@font-face { font-family: Figtree; src: url(/fonts/figtree-latin-wght-normal.woff2) format("woff2"); font-weight: 300 900; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url(/fonts/jetbrains-mono-latin-wght-normal.woff2) format("woff2"); font-weight: 100 800; font-display: swap; }
+* { box-sizing: border-box; }
+body { margin: 0; display: grid; min-height: 100vh; min-height: 100dvh; place-items: center; padding: 24px; font-family: Figtree, ui-sans-serif, system-ui, sans-serif; background: radial-gradient(ellipse at 75% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 38%), var(--page); }
+main { width: min(100%, 520px); padding: clamp(25px, 5vw, 48px); border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: var(--shadow); text-align: center; }
+.brand { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 32px; color: var(--accent); font: 600 .9375rem "JetBrains Mono", ui-monospace, monospace; letter-spacing: .04em; }
+.brand > span { display: grid; width: 31px; height: 31px; place-items: center; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 50%; font-size: 1.25rem; }
+.ne { font-size: 1.3em; font-weight: 450; }
+.one { font-weight: 700; }
+h1 { margin: 0 0 10px; color: var(--text); font-size: clamp(25px, 6vw, 38px); font-weight: 600; letter-spacing: -.035em; }
+p { margin: 0; color: var(--muted); font-size: .8125rem; line-height: 1.6; }
+a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 22px; padding: 0 15px; border-radius: 6px; background: var(--accent); color: var(--ink); font-size: .8125rem; font-weight: 700; text-decoration: none; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
