@@ -61,9 +61,9 @@ resource "aws_cognito_user_pool_client" "dev_gate" {
 
 # The Cognito pages in neon1's colors and mark (cognito/, the same files as neon1-admin's)
 resource "aws_cognito_managed_login_branding" "dev_gate" {
-  user_pool_id                = local.pool_id
-  client_id                   = aws_cognito_user_pool_client.dev_gate.id
-  settings  = file("${path.module}/cognito/branding.json")
+  user_pool_id = local.pool_id
+  client_id    = aws_cognito_user_pool_client.dev_gate.id
+  settings     = file("${path.module}/cognito/branding.json")
 
   dynamic "asset" {
     for_each = { LIGHT = "light", DARK = "dark" }

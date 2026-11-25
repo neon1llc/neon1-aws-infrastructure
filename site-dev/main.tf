@@ -30,7 +30,7 @@ locals {
   csp = {
     # The sign-in card: its own styles, by hash, and the shared fonts
     signin = "default-src 'none'; style-src 'sha256-${base64sha256(file("${path.module}/../site/functions/signin.css"))}'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-    site = join("; ", concat(local.csp_common, ["connect-src 'self'", "upgrade-insecure-requests"]))
+    site   = join("; ", concat(local.csp_common, ["connect-src 'self'", "upgrade-insecure-requests"]))
     # The portal also loads Cloudflare Turnstile, the bot check on its sign-up form (script and its frame)
     portal = join("; ", concat(
       [for d in local.csp_common : d == "script-src 'self'" ? "script-src 'self' https://challenges.cloudflare.com" : d],
