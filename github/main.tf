@@ -349,7 +349,15 @@ data "aws_iam_policy_document" "terraform" {
       aws_iam_openid_connect_provider.github.arn,
       "arn:aws:iam::${local.account}:role/github-neon1-*",
       "arn:aws:iam::${local.account}:role/github-1neon-*",
+      "arn:aws:iam::${local.account}:role/neon1-site-not-found",
     ]
+  }
+
+  # The site stack's not-found edge function: CI reads it and ships new code. Its role is created by hand
+  statement {
+    sid       = "NotFoundEdge"
+    actions   = ["lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:GetFunctionCodeSigningConfig", "lambda:GetPolicy", "lambda:ListVersionsByFunction", "lambda:ListTags", "lambda:UpdateFunctionCode", "lambda:PublishVersion", "lambda:EnableReplication*"]
+    resources = ["arn:aws:lambda:us-east-1:${local.account}:function:neon1-site-not-found", "arn:aws:lambda:us-east-1:${local.account}:function:neon1-site-not-found:*"]
   }
 
   # What site-dev publishes for this stack's dev roles (dev.tf), read so CI can plan them
