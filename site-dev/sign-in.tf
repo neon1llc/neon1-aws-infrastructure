@@ -19,7 +19,7 @@ locals {
 
   # The two keys: the link opens the sign-in card; the session key signs the cookie (also in the
   # store as "session", where dev-gate.js reads it)
-  link_param    = "/neon1-site/dev/link_key"
+  link_param    = "/neon1-site/dev/signin_key"
   session_param = "/neon1-site/dev/session_key"
 }
 

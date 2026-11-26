@@ -14,7 +14,7 @@ Sign-in runs in `site/functions/dev-auth.mjs`, a Lambda@Edge function on `/__sig
 
 | Key | Where | Changed by (neon1-site) | Effect of changing it |
 |---|---|---|---|
-| Link key | SSM `/neon1-site/dev/link_key` | `make dev-relink CONFIRM=yes` | The old link stops working; signed-in devices stay signed in |
+| Link key | SSM `/neon1-site/dev/signin_key` | `make dev-relink CONFIRM=yes` | The old link stops working; signed-in devices stay signed in |
 | Session key | SSM `/neon1-site/dev/session_key` and store key `session` | `make dev-signout` | Every device is signed out |
 
 Access is the `dev-access` group. `make dev-allow EMAIL=...` in neon1-site adds someone, creating their dev account if needed. They then add a passkey at the link it prints. Removing someone from the group stops new sign-ins. Run `make dev-signout` too to sign out their devices at once.
