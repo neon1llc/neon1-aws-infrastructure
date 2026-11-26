@@ -56,6 +56,12 @@ resource "aws_cloudfront_response_headers_policy" "catchall" {
   }
 
   custom_headers_config {
+    # The same Permissions-Policy the site sends, so every neon1.tech name answers alike
+    items {
+      header   = "Permissions-Policy"
+      value    = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+      override = true
+    }
     items {
       header   = "X-Robots-Tag"
       value    = "noindex, nofollow"
