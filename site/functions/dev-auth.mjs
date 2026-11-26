@@ -95,16 +95,44 @@ function claims(idToken) {
 // --- The sign-in card ---
 
 
-// Its styles go in the page as they are, so the header policy can allow exactly them
+// Its styles and script go in the page as they are, so the header policy can allow exactly them
 const CSS = readFileSync(new URL("./signin.css", import.meta.url), "utf8");
+const JS = readFileSync(new URL("./signin.js", import.meta.url), "utf8");
 
-/** The private sign-in card with one button, to the given Cognito address */
+// The dev mark "DE>" (neon1's brand set); the tab icon is its ">" and follows the browser's light or dark
+const MARK = '<svg class="mark" viewBox="2 12.5 62.5 39" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 20V44H8.5a12 12 0 0 0 0-24ZM39 20H29V44H39M29 32H37M46 15.5L60 32L46 48.5"/></svg>';
+const TAB = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="6.5 6.5 51 51"><style>@media (prefers-color-scheme:dark){path{stroke:#6CFFA8}}</style><path d="M20 12L44 32L20 52" fill="none" stroke="#327641" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+const LOGO = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6a24 24 0 0 1 24 24v30M6 12a18 18 0 0 1 18 18v30M6 18a12 12 0 0 1 12 12v30M6 24a6 6 0 0 1 6 6v30"/><path d="M34 6a24 24 0 0 1 24 24v30M34 12a18 18 0 0 1 18 18v30M34 18a12 12 0 0 1 12 12v30M34 24a6 6 0 0 1 6 6v30"/></svg>';
+const SUN = '<svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
+const MOON = '<svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6Z"/></svg>';
+const BUG = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.2V4a2.5 2.5 0 0 1 5 0v1.2M4.4 6.2h7.2v3.6a3.6 3.6 0 0 1-7.2 0zM8 6.4v7M1.8 7.6l2.6.9M14.2 7.6l-2.6.9M2.2 12.2l2.5-1.2M13.8 12.2 11.3 11"/></svg>';
+const TALK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h11v7.2H8.4L5.2 13v-2.8H2.5zM5.4 5.8h5.2M5.4 7.6h3.2"/></svg>';
+
+// Pages dev's gate doesn't serve to strangers are the public site's
+const SITE = "https://neon1.tech";
+const SEP = '<span class="sep" aria-hidden="true">\\</span>';
+const out = (href, text, cls = "", icon = "", label = "") => `<a class="ext${cls}" href="${href}" target="_blank" rel="noopener"${label ? ` aria-label="${label}"` : ""}>${icon}<span class="ext-end">${text}</span></a>`;
+const page = (policy, text) => `<a href="${SITE}/knowledge/${policy}/" target="_blank" rel="noopener">${text}</a>`;
+
+/** The legal strip under the panel, as on 1NEON's public pages */
+const foot = () => '<footer class="pub-foot"><div class="legal"><div class="foot-meta">' + out(`${SITE}/`, "neon1.tech") +
+  '<p class="look-pick" role="group" aria-label="Theme"><span class="look-lead" aria-hidden="true">theme</span><button class="look-opt" type="button" data-look="matrix">matrix</button>' + SEP + '<button class="look-opt" type="button" data-look="sentinel">sentinel</button></p></div>' +
+  `<span class="owner">© ${new Date().getFullYear()} neon1 LLC, New York${SEP}${page("company/registration", "state registration")}</span>` +
+  `<span class="policies">${page("policies/privacy", "privacy")}${SEP}${page("policies/cookies", "browser storage")}${SEP}${page("policies/terms", "terms")}</span>` +
+  '<span class="report-links"><span class="report-lead">report</span>' + out(`${SITE}/report-bug/?from=dev`, "bug", " report-bug", BUG, "report a bug") + SEP + out(`${SITE}/feedback/?from=dev`, "feedback", " report-feedback", TALK, "report feedback") + '</span></div></footer>';
+
+/** The private sign-in screen with one button, to the given Cognito address */
 function card(href, setCookie) {
-  const body = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
-    '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer">' +
-    '<title>neon1 dev</title><meta name="robots" content="noindex"><style>' + CSS + '</style></head><body><main>' +
-    '<div class="brand"><span aria-hidden="true">∿</span><b><span class="ne">neon</span><span class="one">1</span></b></div>' +
-    '<h1>neon1 dev</h1><p>Private access.</p><a href="' + href.replace(/&/g, "&amp;") + '">Sign in</a></main></body></html>';
+  const body = '<!doctype html><html lang="en" data-style="sentinel" data-theme="awake"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer">' +
+    `<title>Sign in · neon1 dev</title><meta name="robots" content="noindex"><link rel="icon" href="${TAB}" type="image/svg+xml">` +
+    '<link rel="stylesheet" href="/shared/neon1.css"><style>' + CSS + '</style><script type="module">' + JS + '</script></head><body><main class="signin">' +
+    '<canvas id="rain" aria-hidden="true"></canvas><canvas id="lens" aria-hidden="true"></canvas><div class="veil"></div>' +
+    `<header class="n1-bar pub-bar alone"><div class="n1-inner"><a class="n1-logo" href="${SITE}/" aria-label="neon1.tech home">${LOGO}<span><span class="ne">neon</span><span class="one">1</span></span></a>` +
+    `<button class="theme-sw" type="button" role="switch" aria-checked="false" aria-label="Dark mode" title="light or dark">${SUN}${MOON}<span class="theme-knob" aria-hidden="true"></span></button></div></header>` +
+    '<div class="panel">' + MARK + '<h1 class="signin-h">neon1 dev</h1><p class="signin-lead">Sign in with your dev account.</p>' +
+    '<a class="btn" href="' + href.replace(/&/g, "&amp;") + '">Sign in</a><p class="next-hint">A passkey or an emailed code.</p></div>' +
+    foot() + '</main></body></html>';
   return {
     status: "200",
     statusDescription: "OK",

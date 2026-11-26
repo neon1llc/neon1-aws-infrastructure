@@ -28,9 +28,9 @@ locals {
     "frame-ancestors 'none'",
   ]
   csp = {
-    # The sign-in card: its own styles, by hash, and the shared fonts. Without a key the same address
+    # The sign-in screen: its own styles and script, by hash, with the shared stylesheet, rain, and fonts. Without a key the same address
     # answers with the site's not-found page, which loads its own styles and script from /shared
-    signin = "default-src 'none'; style-src 'self' 'sha256-${base64sha256(file("${path.module}/../site/functions/signin.css"))}'; script-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    signin = "default-src 'none'; style-src 'self' 'sha256-${base64sha256(file("${path.module}/../site/functions/signin.css"))}'; script-src 'self' 'sha256-${base64sha256(file("${path.module}/../site/functions/signin.js"))}'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     site   = join("; ", concat(local.csp_common, ["connect-src 'self'", "upgrade-insecure-requests"]))
     # The portal also loads Cloudflare Turnstile, the bot check on its sign-up form (script and its frame)
     portal = join("; ", concat(

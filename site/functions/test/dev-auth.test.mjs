@@ -46,7 +46,7 @@ function idToken(state, extra = {}) {
 async function begin() {
   const r = await handler(event("/__signin", `k=${keys.link}`));
   assert.equal(r.status, "200");
-  const loc = new URL(/<a href="([^"]+)">Sign in/.exec(r.body)[1].replace(/&amp;/g, "&"));
+  const loc = new URL(/<a class="btn" href="([^"]+)">Sign in/.exec(r.body)[1].replace(/&amp;/g, "&"));
   const cookie = r.headers["set-cookie"][0].value.split(";")[0];
   return { r, loc, state: loc.searchParams.get("state"), cookie };
 }
@@ -73,7 +73,10 @@ test("without the right link key /__signin is the not-found page, signed in or n
 test("the page's styles are exactly signin.css, so the header's hash allows them", async () => {
   const { r } = await begin();
   assert.equal(/<style>([\s\S]*)<\/style>/.exec(r.body)[1], readFileSync(new URL("../signin.css", import.meta.url), "utf8"));
+  assert.equal(/<script type="module">([\s\S]*)<\/script>/.exec(r.body)[1], readFileSync(new URL("../signin.js", import.meta.url), "utf8"));
   assert.ok(!r.body.includes(keys.link));
+  // A viewer-request function may answer with at most 40 KB
+  assert.ok(Buffer.byteLength(r.body) < 40_000);
 });
 
 test("the link's card starts a PKCE sign-in at the dev pool, bound to this browser", async () => {

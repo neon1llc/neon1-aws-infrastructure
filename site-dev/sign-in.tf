@@ -96,6 +96,11 @@ data "archive_file" "dev_auth" {
   }
 
   source {
+    filename = "signin.js"
+    content  = file("${path.module}/../site/functions/signin.js")
+  }
+
+  source {
     filename = "config.json"
     content = jsonencode({
       authDomain   = local.auth_domain
