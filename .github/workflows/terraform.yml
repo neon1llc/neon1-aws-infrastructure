@@ -136,6 +136,7 @@ jobs:
   # Every released version gets an annotated tag on the commit that was applied, once every stack
   # has passed. The version is the changelog's top entry; a push that doesn't add one ships under the last tag
   tag:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: stack
     runs-on: ubuntu-latest
     permissions:
