@@ -15,7 +15,7 @@ variable "expected_account_id" {
 
 # A normal month is a few dollars, so this catches anything unplanned, tagged or not
 variable "monthly_budget_usd" {
-  description = "Account-wide monthly spend that triggers an email (80% actual, 100% forecast)."
+  description = "Recurring account-wide monthly spend that triggers an email (80% actual, 100% forecast). One-time fees are excluded."
   type        = number
   default     = 15
 }

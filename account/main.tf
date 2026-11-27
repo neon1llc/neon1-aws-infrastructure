@@ -216,14 +216,15 @@ resource "aws_budgets_budget" "account" {
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
 
-  # Run rate only: domain registration and renewal are one-time yearly charges, and tax follows them
+  # Recurring spend only: one-time fees have their own budget below
   cost_filter {
     name   = "CostCategory"
     values = ["${aws_ce_cost_category.run_rate.name}$ongoing"]
   }
 
+  # Tax on recurring spend recurs with it
   cost_types {
-    include_tax = false
+    include_tax = true
   }
 
   notification {
@@ -268,22 +269,74 @@ resource "aws_ce_anomaly_subscription" "services" {
 }
 
 
-# Usage only, so the account budget measures what the stack costs to run. Domain registration shows as
-# record type Other, and tax is its own type
+# Splits the bill so one-time fees never count against the recurring budget. One-time means domain
+# registration, renewal, and transfer, plus upfront purchases. Everything else recurs, including metered
+# model calls and new kinds of charges nobody has sorted yet
 resource "aws_ce_cost_category" "run_rate" {
-  name         = "neon1-run-rate"
-  rule_version = "CostCategoryExpression.v1"
+  name          = "neon1-run-rate"
+  rule_version  = "CostCategoryExpression.v1"
+  default_value = "ongoing"
 
   rule {
-    value = "ongoing"
+    type  = "REGULAR"
+    value = "one_time"
     rule {
       dimension {
-        key           = "RECORD_TYPE"
-        values        = ["Usage"]
+        key           = "SERVICE_CODE"
+        values        = ["AmazonRegistrar"]
         match_options = ["EQUALS"]
       }
     }
   }
 
-  default_value = "one_time"
+  rule {
+    type  = "REGULAR"
+    value = "one_time"
+    rule {
+      dimension {
+        key           = "USAGE_TYPE"
+        values        = ["Route53-Domains"]
+        match_options = ["ENDS_WITH"]
+      }
+    }
+  }
+
+  rule {
+    type  = "REGULAR"
+    value = "one_time"
+    rule {
+      dimension {
+        key           = "RECORD_TYPE"
+        values        = ["Fee", "SavingsPlanUpfrontFee"]
+        match_options = ["EQUALS"]
+      }
+    }
+  }
+}
+
+
+# Keeps one-time fees visible: an email in any month they pass a dollar, outside the recurring budget
+resource "aws_budgets_budget" "one_time" {
+  name         = "neon1-one-time"
+  budget_type  = "COST"
+  limit_amount = "1"
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
+
+  cost_filter {
+    name   = "CostCategory"
+    values = ["${aws_ce_cost_category.run_rate.name}$one_time"]
+  }
+
+  cost_types {
+    include_tax = true
+  }
+
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = var.alert_emails
+  }
 }

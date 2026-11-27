@@ -4,6 +4,8 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
+- `account/`: the $15 budget counts recurring spend only, now with its tax, and a new `neon1-one-time` budget emails in any month one-time fees (domain registration and renewal, upfront purchases) pass $1. Charges nobody has sorted yet count as recurring. Applied.
+
 ## v0.14.0 - 2026-11-25
 
 - `account/`: an outside check of neon1.tech. A Route 53 health check asks the home page every 30 seconds, and a CloudWatch alarm emails when it fails three checks in a row or stops reporting. Apply by hand. The alert topic is encrypted with its own key. A small function turns each change into a short email through neon1-notify, saying the site is down or back up, with a link.
