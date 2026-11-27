@@ -40,11 +40,12 @@ data "aws_iam_policy_document" "boundary_portal" {
     resources = ["arn:aws:s3:::neon1-1neon-*"]
   }
 
-  # Stripe's keys, read once per cold start from SecureString parameters under /1neon/
+  # Stripe's keys, read once per cold start from SecureString parameters under /1neon/, and neon1-notify's
+  # reply secret, which signs the Reply-To on project messages (the same secret notify checks replies with)
   statement {
     sid       = "Secrets"
     actions   = ["ssm:GetParameters"]
-    resources = ["arn:aws:ssm:us-east-1:${local.account}:parameter/1neon/*"]
+    resources = ["arn:aws:ssm:us-east-1:${local.account}:parameter/1neon/*", "arn:aws:ssm:us-east-1:${local.account}:parameter/neon1-notify/*/reply_secret"]
   }
 
   # Decrypting those parameters, only as SSM does on the function's behalf
