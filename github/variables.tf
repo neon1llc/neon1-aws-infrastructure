@@ -145,3 +145,15 @@ variable "portal_dev_sms_sender_arn" {
     error_message = "portal_dev_sms_sender_arn must be empty or an sms-voice phone-number or pool ARN."
   }
 }
+
+variable "portal_trin_model_id" {
+  description = "Bedrock model ID 1NEON's Trin answers with."
+  type        = string
+  default     = "amazon.nova-lite-v1:0"
+}
+
+variable "portal_trin_embed_id" {
+  description = "Bedrock embedding model ID Trin searches with."
+  type        = string
+  default     = "amazon.titan-embed-text-v2:0"
+}
