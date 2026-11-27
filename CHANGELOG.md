@@ -6,6 +6,9 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 - CI plans all six stacks on pull requests, manual runs, and a daily schedule, and its summary lists only resource addresses and actions. Main still applies only `site/` and `dns/`, and only when their plan has changes.
 - `github/`: a read-only plan role, `github-neon1-infra-plan`, for branches and pull requests. It reads every stack and takes their lock files, and changes nothing. Applied.
+- `site-dev/`: the dev sign-in asks for the email and code on neon1's own pages, so password managers can fill them, and draws them like 1NEON's. The emailed link finishes sign-in in the browser that asked. Passkeys stay on Cognito's pages. Applied to dev.
+- `docs/runbooks/`: operator runbooks for the site and account stacks, and READMEs for `account/` and `catchall/`.
+- `make check` runs Terraform tests; the first covers the expected-account check.
 - `account/`: the $15 budget counts recurring spend only, now with its tax, and a new `neon1-one-time` budget emails in any month one-time fees (domain registration and renewal, upfront purchases) pass $1. Charges nobody has sorted yet count as recurring. Applied.
 
 ## v0.14.0 - 2026-11-25
