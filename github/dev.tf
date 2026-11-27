@@ -193,6 +193,8 @@ data "aws_iam_policy_document" "boundary_portal_dev" {
       # neon1's Pushover keys, for dev chat alerts: these two parameters only
       "arn:aws:ssm:us-east-1:${local.account}:parameter/neon1-notify/dev/pushover_app_token",
       "arn:aws:ssm:us-east-1:${local.account}:parameter/neon1-notify/dev/pushover_user_key",
+      # neon1-notify's reply secret, which signs the Reply-To on project messages
+      "arn:aws:ssm:us-east-1:${local.account}:parameter/neon1-notify/dev/reply_secret",
     ]
   }
 
