@@ -5,7 +5,7 @@ This runbook is intentionally gated. The current `neon1-site` `make dev-gate` co
 1. Confirm the active key is suspected exposed and identify the owner of the `neon1-site` and `site-dev` changes. **Check:** Incident record contains exposure scope and authorized responders. **Undo:** No change.
 2. Check whether the approved site release includes a staged-key reader and clipboard-only link command:
    ```sh
-   rg -n 'dev-relink|dev-link|signin_key|next_signin_key' Makefile scripts site-dev
+   rg -n 'dev-relink|dev-link|signin_key|next_signin_key' Makefile scripts
    ```
    **Check:** Proceed only when code and stack configuration support a second parameter and cutover without printing the link. Current source has no such staged-key contract. **Undo:** No change.
 3. If staging support is absent, stop and implement/review it through the normal code path before rotating. Do not run `make dev-gate`, `make dev-relink`, or direct `aws ssm put-parameter` against the active name. **Check:** A plan and reviewed deployment show the new reader and parameter before cutover. **Undo:** Revert the code/configuration change before activation; do not overwrite the active key.
