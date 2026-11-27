@@ -112,9 +112,11 @@ jobs:
             >"$RUNNER_TEMP/$STACK-plan.log" 2>&1
           result=$?
           set -e
-          if [ "$result" -gt 2 ]; then
-            echo "Terraform plan failed for $STACK; see the job status without printing raw plan output."
-            exit "$result"
+          # -detailed-exitcode: 0 no changes, 1 error, 2 changes. On an error print only Terraform's error titles
+          if [ "$result" -ne 0 ] && [ "$result" -ne 2 ]; then
+            echo "Terraform plan failed for $STACK:"
+            grep -E '^(│ )?Error: ' "$RUNNER_TEMP/$STACK-plan.log" | sed 's/^│ //' || true
+            exit 1
           fi
           terraform -chdir="$STACK" show -json "$RUNNER_TEMP/$STACK.tfplan" \
             | jq -r --arg stack "$STACK" '
