@@ -71,6 +71,14 @@ test("/faqs, with or without its slash, redirects to the questions in the knowle
   }
 });
 
+test("/contact, with or without its slash, redirects to the home page's contact form", async () => {
+  for (const uri of ["/contact", "/contact/"]) {
+    const r = (await site(event(uri)));
+    assert.equal(r.statusCode, 301);
+    assert.equal(r.headers.location.value, "/#contact");
+  }
+});
+
 test("knowledge center folders serve their index page, and gain a slash when they lack one", async () => {
   assert.equal((await site(event("/knowledge/"))).uri, "/releases/0123456789ab/knowledge/index.html");
   assert.equal((await site(event("/knowledge/forms/intake/"))).uri, "/releases/0123456789ab/knowledge/forms/intake/index.html");

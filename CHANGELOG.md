@@ -4,6 +4,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
+- `site/` and `site-dev/`: `/contact` and `/contact/` redirect to the home page's contact form. Applied to dev.
 - CI plans all six stacks on pull requests, manual runs, and a daily schedule, and its summary lists only resource addresses and actions. Main still applies only `site/` and `dns/`, and only when their plan has changes.
 - `github/`: a read-only plan role, `github-neon1-infra-plan`, for branches and pull requests. It reads every stack and takes their lock files, and changes nothing. Applied.
 - `site-dev/`: the dev sign-in asks for the email and code on neon1's own pages, so password managers can fill them, and draws them like 1NEON's. The emailed link finishes sign-in in the browser that asked. Passkeys stay on Cognito's pages. Applied to dev.
