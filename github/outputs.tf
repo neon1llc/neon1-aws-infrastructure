@@ -17,3 +17,9 @@ output "site_deploy_role_arn" {
 output "terraform_role_arn" {
   value = aws_iam_role.terraform.arn
 }
+
+
+# Set as AWS_TERRAFORM_PLAN_ROLE_ARN in neon1-aws-infrastructure
+output "terraform_plan_role_arn" {
+  value = aws_iam_role.plan.arn
+}

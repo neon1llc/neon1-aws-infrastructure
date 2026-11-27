@@ -2,13 +2,15 @@
 
 name: terraform
 
-# Pushes and pull requests into main, or a manual run
+# Plans every stack on PRs and manual runs; main applies only site and DNS.
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '23 11 * * *'
 
 # Read-only by default; the stack job adds the OIDC token it needs
 permissions:
@@ -41,10 +43,9 @@ jobs:
           [ -n "$top" ] || { echo "::error::CHANGELOG.md names no version"; exit 1; }
           echo "release v$top"
 
-  # github is plan only: the role can't change IAM, so that stack is applied by hand
+  # Plan each stack from the event commit; only the existing main push path applies site and DNS
   stack:
     needs: check
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -54,6 +55,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - stack: account
+            apply: false
+          - stack: catchall
+            apply: false
+          - stack: site-dev
+            apply: false
           - stack: site
             apply: true
           - stack: dns
@@ -78,29 +85,59 @@ jobs:
           terraform_version: 1.16.0
           terraform_wrapper: false
 
-      # Short-lived credentials through GitHub OIDC; the role trusts only this repo's main branch
+      # Short-lived credentials through GitHub OIDC. Only main's site and DNS applies take the role that
+      # can change them; every other job plans with the read-only role
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          role-to-assume: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.apply) && vars.AWS_TERRAFORM_ROLE_ARN || vars.AWS_TERRAFORM_PLAN_ROLE_ARN }}
           aws-region: us-east-1
 
-      # Plan every stack; apply only the ones marked apply. The expected account is the role's own,
-      # so credentials that resolve anywhere else stop the run before Terraform starts
-      # Block scalars, since the cut delimiter's colon would end a plain YAML value
-      - run: |
-          make plan STACK=${{ matrix.stack }} EXPECTED_ACCOUNT="$(echo "$ROLE" | cut -d: -f5)"
+      # Keep raw plans in the runner temp directory and publish only resource addresses and actions
+      - name: Plan ${{ matrix.stack }}
+        id: plan
+        shell: bash
         env:
-          ROLE: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
-
-      - if: matrix.apply
+          STACK: ${{ matrix.stack }}
+          EXPECTED_ACCOUNT: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
         run: |
-          make apply STACK=${{ matrix.stack }} EXPECTED_ACCOUNT="$(echo "$ROLE" | cut -d: -f5)"
+          set -euo pipefail
+          account=$(printf '%s' "$EXPECTED_ACCOUNT" | cut -d: -f5)
+          test "${#account}" -eq 12 || { echo 'Could not read the account from the role ARN'; exit 1; }
+          actual=$(aws sts get-caller-identity --query Account --output text)
+          test "$actual" = "$account" || { echo 'Credentials resolved to a different account'; exit 1; }
+          terraform -chdir="$STACK" init -input=false -no-color >/dev/null
+          set +e
+          terraform -chdir="$STACK" plan -input=false -no-color -detailed-exitcode \
+            -var "expected_account_id=$account" -out="$RUNNER_TEMP/$STACK.tfplan" \
+            >"$RUNNER_TEMP/$STACK-plan.log" 2>&1
+          result=$?
+          set -e
+          if [ "$result" -gt 2 ]; then
+            echo "Terraform plan failed for $STACK; see the job status without printing raw plan output."
+            exit "$result"
+          fi
+          terraform -chdir="$STACK" show -json "$RUNNER_TEMP/$STACK.tfplan" \
+            | jq -r --arg stack "$STACK" '
+                [.resource_changes[]?.change.actions] as $changes
+                | ([ $changes[] | select(index("create") != null) ] | length) as $add
+                | ([ $changes[] | select(index("update") != null) ] | length) as $change
+                | ([ $changes[] | select(index("delete") != null) ] | length) as $destroy
+                | "## \($stack)\n\n\($add) to add, \($change) to change, \($destroy) to destroy."
+                  + (if ($changes | length) == 0 then " No differences from the applied state."
+                     else "\n\n" + ([.resource_changes[]? | select(.change.actions != ["no-op"]) | "- `\(.address)`: `\(.change.actions | join(" then "))`"] | join("\n")) end)
+              ' >> "$GITHUB_STEP_SUMMARY"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+
+      # Apply exactly the plan above, and only when it has changes
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.apply && steps.plan.outputs.result == '2'
+        run: terraform -chdir="$STACK" apply -input=false -no-color "$RUNNER_TEMP/$STACK.tfplan"
         env:
-          ROLE: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          STACK: ${{ matrix.stack }}
 
   # Every released version gets an annotated tag on the commit that was applied, once every stack
   # has passed. The version is the changelog's top entry; a push that doesn't add one ships under the last tag
   tag:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: stack
     runs-on: ubuntu-latest
     permissions:
