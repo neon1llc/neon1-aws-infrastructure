@@ -149,7 +149,7 @@ variable "portal_dev_sms_sender_arn" {
 variable "portal_trin_model_id" {
   description = "Bedrock model ID 1NEON's Trin answers with."
   type        = string
-  default     = "amazon.nova-lite-v1:0"
+  default     = "qwen.qwen3-next-80b-a3b"
 }
 
 variable "portal_trin_embed_id" {
