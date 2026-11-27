@@ -102,6 +102,14 @@ data "aws_iam_policy_document" "boundary_portal" {
     actions   = ["bedrock:InvokeModel"]
     resources = ["arn:aws:bedrock:us-east-1:${local.account}:inference-profile/us.${var.portal_neo_model_id}", "arn:aws:bedrock:us-*::foundation-model/${var.portal_neo_model_id}"]
   }
+
+  # Trin, the project assistant: its answering model (through its US profile) and the embedding model it
+  # searches an organization's own work with. Both are low-cost Amazon models; switching is a change here
+  statement {
+    sid       = "Trin"
+    actions   = ["bedrock:InvokeModel"]
+    resources = ["arn:aws:bedrock:us-east-1:${local.account}:inference-profile/us.${var.portal_trin_model_id}", "arn:aws:bedrock:us-*::foundation-model/${var.portal_trin_model_id}", "arn:aws:bedrock:us-east-1::foundation-model/${var.portal_trin_embed_id}"]
+  }
 }
 
 resource "aws_iam_policy" "boundary_portal" {
