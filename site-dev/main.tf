@@ -28,9 +28,9 @@ locals {
     "frame-ancestors 'none'",
   ]
   csp = {
-    # The sign-in card: its own styles, by hash, and the shared fonts. Without a key the same address
+    # The sign-in screen: its own styles and script, by hash, with the shared stylesheet, rain, and fonts. Without a key the same address
     # answers with the site's not-found page, which loads its own styles and script from /shared
-    signin = "default-src 'none'; style-src 'self' 'sha256-${base64sha256(file("${path.module}/../site/functions/signin.css"))}'; script-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    signin = "default-src 'none'; style-src 'self' 'sha256-${base64sha256(file("${path.module}/../site/functions/signin.css"))}'; script-src 'self' 'sha256-${base64sha256(file("${path.module}/../site/functions/signin.js"))}'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
     site   = join("; ", concat(local.csp_common, ["connect-src 'self'", "upgrade-insecure-requests"]))
     # The portal also loads Cloudflare Turnstile, the bot check on its sign-up form (script and its frame)
     portal = join("; ", concat(
@@ -311,10 +311,11 @@ resource "aws_cloudfront_distribution" "dev" {
   dynamic "ordered_cache_behavior" {
     for_each = toset(["/__signin", "/__auth"])
     content {
-      path_pattern               = ordered_cache_behavior.value
-      target_origin_id           = "s3-dev"
-      viewer_protocol_policy     = "https-only"
-      allowed_methods            = ["GET", "HEAD"]
+      path_pattern           = ordered_cache_behavior.value
+      target_origin_id       = "s3-dev"
+      viewer_protocol_policy = "https-only"
+      # /__signin takes its own forms' posts (CloudFront allows GET and HEAD alone, or every method)
+      allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
       cached_methods             = ["GET", "HEAD"]
       cache_policy_id            = local.caching_disabled_policy
       response_headers_policy_id = aws_cloudfront_response_headers_policy.dev["signin"].id
@@ -322,7 +323,7 @@ resource "aws_cloudfront_distribution" "dev" {
       lambda_function_association {
         event_type   = "viewer-request"
         lambda_arn   = aws_lambda_function.dev_auth.qualified_arn
-        include_body = false
+        include_body = true
       }
     }
   }

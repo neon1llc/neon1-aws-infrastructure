@@ -1,7 +1,7 @@
 # site-dev/sign-in.tf - Who may sign in to dev.neon1.tech, and the edge function that checks it.
-# /__signin?k=<link key> shows the sign-in card; its button starts a sign-in at the 1NEON dev pool
-# (auth-dev.neon1.tech), a passkey or email code finishes it, and only members of its dev-access
-# group get the cookie. Both keys are SSM SecureStrings set by hand (neon1-site make dev-relink /
+# /__signin?k=<link key> asks for an email and then the emailed code, checked by the 1NEON dev
+# pool; a passkey signs in on the pool's own page (auth-dev.neon1.tech). Only members of its
+# dev-access group get the cookie. Both keys are SSM SecureStrings set by hand (neon1-site make dev-relink /
 # dev-signout), never here.
 
 
@@ -77,6 +77,15 @@ resource "aws_cognito_managed_login_branding" "dev_gate" {
 }
 
 
+# 1NEON's dev sign-in email reads this, so a code asked for by the gate links back to the gate
+# (neon1-1NEON infra/envs/dev)
+resource "aws_ssm_parameter" "gate_client_id" {
+  name  = "/neon1-site/dev/gate_client_id"
+  type  = "String"
+  value = aws_cognito_user_pool_client.dev_gate.id
+}
+
+
 # --- The sign-in function: Lambda@Edge on /__signin and /__auth only ---
 
 
@@ -93,6 +102,11 @@ data "archive_file" "dev_auth" {
   source {
     filename = "signin.css"
     content  = file("${path.module}/../site/functions/signin.css")
+  }
+
+  source {
+    filename = "signin.js"
+    content  = file("${path.module}/../site/functions/signin.js")
   }
 
   source {
