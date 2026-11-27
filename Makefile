@@ -42,6 +42,7 @@ dev-router: ## Rebuild site/functions/dev-router.js from the live routers and de
 test: ## Run Terraform validation tests and the site function fixtures
 	node site/functions/build-dev.mjs --check
 	node --test site/functions/test/routers.test.mjs site/functions/test/dev-auth.test.mjs site/functions/test/not-found-edge.test.mjs
+	python3 scripts/test-iam-guards.py
 	@for s in $(STACKS); do \
 		if find "$$s" -maxdepth 2 -name '*.tftest.hcl' -print -quit | grep -q .; then \
 			echo "terraform test $$s"; \

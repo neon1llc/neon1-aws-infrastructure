@@ -10,6 +10,7 @@
 2. Inspect the owning stack (`dns` for zone-wide records, `site` for apex/`www` and certificate) and create a fresh plan:
    ```sh
    export AWS_PROFILE=neon1
+   export EXPECTED_ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
    make plan STACK="$STACK"
    ```
    **Check:** Plan contains only the intended record or certificate change; stop on unexpected replacement or destroy. **Undo:** No change; discard the local plan.
