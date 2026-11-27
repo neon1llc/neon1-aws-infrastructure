@@ -311,9 +311,9 @@ resource "aws_cloudfront_distribution" "dev" {
   dynamic "ordered_cache_behavior" {
     for_each = toset(["/__signin", "/__auth"])
     content {
-      path_pattern               = ordered_cache_behavior.value
-      target_origin_id           = "s3-dev"
-      viewer_protocol_policy     = "https-only"
+      path_pattern           = ordered_cache_behavior.value
+      target_origin_id       = "s3-dev"
+      viewer_protocol_policy = "https-only"
       # /__signin takes its own forms' posts (CloudFront allows GET and HEAD alone, or every method)
       allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
       cached_methods             = ["GET", "HEAD"]
