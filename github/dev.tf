@@ -256,6 +256,13 @@ data "aws_iam_policy_document" "boundary_portal_dev" {
       "arn:aws:bedrock:us-*::foundation-model/${var.portal_dev_neo_model_id}",
     ]
   }
+  # Trin: its answering model through its US profile, and the embedding model it searches with
+  statement {
+    sid       = "Trin"
+    actions   = ["bedrock:InvokeModel"]
+    resources = ["arn:aws:bedrock:us-east-1:${local.account}:inference-profile/us.${var.portal_trin_model_id}", "arn:aws:bedrock:us-*::foundation-model/${var.portal_trin_model_id}", "arn:aws:bedrock:us-east-1::foundation-model/${var.portal_trin_embed_id}"]
+  }
+
 }
 
 resource "aws_iam_policy" "boundary_portal_dev" {
