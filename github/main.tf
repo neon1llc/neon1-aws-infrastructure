@@ -382,3 +382,66 @@ resource "aws_iam_role_policy" "terraform" {
   role   = aws_iam_role.terraform.id
   policy = data.aws_iam_policy_document.terraform.json
 }
+
+
+# --- Terraform plans: read every stack from any branch or pull request, change nothing ---
+
+
+# Branches and pull requests plan with this role; only main's site and DNS applies use the one above.
+# Fork pull requests get no OIDC token, so only people who can push here can assume it
+data "aws_iam_policy_document" "plan_trust" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_host}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "${local.oidc_host}:sub"
+      values = [
+        "repo:${local.repos.terraform}:ref:refs/heads/*",
+        "repo:${local.repos.terraform}:pull_request",
+      ]
+    }
+  }
+}
+
+
+resource "aws_iam_role" "plan" {
+  name               = "github-neon1-infra-plan"
+  description        = "GitHub Actions Terraform plans for ${local.repos.terraform}, read only"
+  assume_role_policy = data.aws_iam_policy_document.plan_trust.json
+}
+
+
+# Refreshing six stacks reads across many services, so the role takes AWS's read-only policy
+resource "aws_iam_role_policy_attachment" "plan_read" {
+  role       = aws_iam_role.plan.name
+  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
+
+
+# A plan takes each stack's lock file and reads its state; nothing else is written
+data "aws_iam_policy_document" "plan" {
+  statement {
+    sid       = "StateLock"
+    actions   = ["s3:PutObject", "s3:DeleteObject"]
+    resources = ["${local.state_arn}/*.tflock"]
+  }
+}
+
+
+resource "aws_iam_role_policy" "plan" {
+  name   = "plan"
+  role   = aws_iam_role.plan.id
+  policy = data.aws_iam_policy_document.plan.json
+}

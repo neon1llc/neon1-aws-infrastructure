@@ -85,10 +85,11 @@ jobs:
           terraform_version: 1.16.0
           terraform_wrapper: false
 
-      # Short-lived credentials through GitHub OIDC; PR and non-main refs need an approved trust update
+      # Short-lived credentials through GitHub OIDC. Only main's site and DNS applies take the role that
+      # can change them; every other job plans with the read-only role
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          role-to-assume: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.apply) && vars.AWS_TERRAFORM_ROLE_ARN || vars.AWS_TERRAFORM_PLAN_ROLE_ARN }}
           aws-region: us-east-1
 
       # Keep raw plans in the runner temp directory and publish only resource addresses and actions
@@ -127,11 +128,11 @@ jobs:
               ' >> "$GITHUB_STEP_SUMMARY"
           echo "result=$result" >> "$GITHUB_OUTPUT"
 
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.apply
-        run: |
-          make apply STACK=${{ matrix.stack }} EXPECTED_ACCOUNT="$(echo "$ROLE" | cut -d: -f5)"
+      # Apply exactly the plan above, and only when it has changes
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.apply && steps.plan.outputs.result == '2'
+        run: terraform -chdir="$STACK" apply -input=false -no-color "$RUNNER_TEMP/$STACK.tfplan"
         env:
-          ROLE: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          STACK: ${{ matrix.stack }}
 
   # Every released version gets an annotated tag on the commit that was applied, once every stack
   # has passed. The version is the changelog's top entry; a push that doesn't add one ships under the last tag
