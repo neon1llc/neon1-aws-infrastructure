@@ -39,9 +39,16 @@ validate: ## Validate each stack without touching remote state
 dev-router: ## Rebuild site/functions/dev-router.js from the live routers and dev-gate.js
 	node site/functions/build-dev.mjs
 
-test: ## Run the CloudFront Function, dev sign-in, and not-found fixtures with Node, and check dev-router.js is current
+test: ## Run Terraform validation tests and the site function fixtures
 	node site/functions/build-dev.mjs --check
 	node --test site/functions/test/routers.test.mjs site/functions/test/dev-auth.test.mjs site/functions/test/not-found-edge.test.mjs
+	@for s in $(STACKS); do \
+		if find "$$s" -maxdepth 2 -name '*.tftest.hcl' -print -quit | grep -q .; then \
+			echo "terraform test $$s"; \
+			terraform -chdir="$$s" init -backend=false -input=false >/dev/null || exit 1; \
+			terraform -chdir="$$s" test -no-color || exit 1; \
+		fi; \
+	done
 
 # CI always has Docker, so only a local run without either tool skips
 lint: ## Lint with tflint
