@@ -1,10 +1,13 @@
 // site/functions/dev-auth.mjs - dev.neon1.tech's sign-in, a Lambda@Edge viewer-request function on
 // /__signin and /__auth only (site-dev/main.tf).
 //   1. /__signin?k=<link key>, a private address that only changes when someone changes it on
-//      purpose, shows the sign-in card; its button starts the dev Cognito sign-in (a passkey or
-//      email code). A device already signed in goes straight home. Without the key it's a 404.
-//   2. Cognito returns to /__auth with a code; a person in the dev-access group gets the 30-day
-//      n1dev cookie that dev-gate.js checks on every other request.
+//      purpose, asks for an email, then the code Cognito mails there. Both are neon1's own forms,
+//      so password managers and keyboards can fill them. A device already signed in goes straight
+//      home. Without the key it's a 404.
+//   2. A passkey still signs in on Cognito's page, which returns to /__auth with a code; passkeys
+//      are tied to that address.
+//   Either way, a person in the dev-access group gets the 30-day n1dev cookie that dev-gate.js
+//   checks on every other request.
 // Every failure is the same not-found page dev-gate.js gives.
 // Lambda@Edge has no environment variables: config.json beside this file is written by Terraform.
 
@@ -73,10 +76,10 @@ function closed() {
 }
 
 /** A no-store redirect that sets the given cookies */
-function redirect(location, setCookies) {
+function redirect(location, setCookies, status = "302") {
   return {
-    status: "302",
-    statusDescription: "Found",
+    status,
+    statusDescription: status === "303" ? "See Other" : "Found",
     headers: {
       location: header("Location", location),
       "cache-control": header("Cache-Control", "no-store"),
@@ -121,8 +124,11 @@ const foot = () => '<footer class="pub-foot"><div class="legal"><div class="foot
   `<span class="policies">${page("policies/privacy", "privacy")}${SEP}${page("policies/cookies", "browser storage")}${SEP}${page("policies/terms", "terms")}</span>` +
   '<span class="report-links"><span class="report-lead">report</span>' + out(`${SITE}/report-bug/?from=dev`, "bug", " report-bug", BUG, "report a bug") + SEP + out(`${SITE}/feedback/?from=dev`, "feedback", " report-feedback", TALK, "report feedback") + '</span></div></footer>';
 
-/** The private sign-in screen with one button, to the given Cognito address */
-function card(href, setCookie) {
+/** Text made safe for HTML, quotes included */
+const esc = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+/** The private sign-in screen: the bar, one panel holding the given step, and the legal strip */
+function card(panel, setCookie) {
   const body = '<!doctype html><html lang="en" data-style="sentinel" data-theme="awake"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer">' +
     `<title>Sign in · neon1 dev</title><meta name="robots" content="noindex"><link rel="icon" href="${TAB}" type="image/svg+xml">` +
@@ -130,20 +136,37 @@ function card(href, setCookie) {
     '<canvas id="rain" aria-hidden="true"></canvas><canvas id="lens" aria-hidden="true"></canvas><div class="veil"></div>' +
     `<header class="n1-bar pub-bar alone"><div class="n1-inner"><a class="n1-logo" href="${SITE}/" aria-label="neon1.tech home">${LOGO}<span><span class="ne">neon</span><span class="one">1</span></span></a>` +
     `<button class="theme-sw" type="button" role="switch" aria-checked="false" aria-label="Dark mode" title="light or dark">${SUN}${MOON}<span class="theme-knob" aria-hidden="true"></span></button></div></header>` +
-    '<div class="panel">' + MARK + '<h1 class="signin-h">neon1 dev</h1><p class="signin-lead">Sign in with your dev account.</p>' +
-    '<a class="btn" href="' + href.replace(/&/g, "&amp;") + '">Sign in</a><p class="next-hint">A passkey or an emailed code.</p></div>' +
+    '<div class="panel">' + MARK + '<h1 class="signin-h">neon1 dev</h1>' + panel + '</div>' +
     foot() + '</main></body></html>';
-  return {
-    status: "200",
-    statusDescription: "OK",
-    headers: {
-      "content-type": header("Content-Type", "text/html; charset=utf-8"),
-      "cache-control": header("Cache-Control", "no-store"),
-      "set-cookie": header("Set-Cookie", setCookie),
-    },
-    body,
+  const headers = {
+    "content-type": header("Content-Type", "text/html; charset=utf-8"),
+    "cache-control": header("Cache-Control", "no-store"),
   };
+  if (setCookie) headers["set-cookie"] = header("Set-Cookie", setCookie);
+  return { status: "200", statusDescription: "OK", headers, body };
 }
+
+const notice = (text) => (text ? `<p class="notice" role="alert">${esc(text)}</p>` : "");
+
+// The forms name no action, so they post back to the private address they came from.
+// Step one: the email. The passkey link goes to Cognito's page
+const emailStep = (passkey, problem = "", email = "") => '<p class="signin-lead">Sign in with your dev account.</p>' + notice(problem) +
+  '<form class="stack" name="signin" method="post"><label class="field-label" for="email">Email address</label>' +
+  `<input id="email" name="username" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="128" value="${esc(email)}">` +
+  '<button class="btn" type="submit">Continue</button></form><p class="next-hint">I\'ll email you a code.</p>' +
+  (passkey ? `<p class="alt"><a href="${esc(passkey)}">Use a passkey</a></p>` : "");
+
+// Step two: the code. The account rides along off screen, so a password manager knows whose code it is;
+// Cognito's session string ties the code to the request that sent it
+const codeStep = (email, session, problem = "") => `<p class="signin-lead">We sent a code to <b>${esc(email)}</b>.</p>` + notice(problem) +
+  '<form class="stack" name="code" method="post">' +
+  `<input class="account" type="text" name="username" autocomplete="username" value="${esc(email)}" readonly tabindex="-1" aria-hidden="true">` +
+  `<input type="hidden" name="session" value="${esc(session)}">` +
+  '<label class="sr" for="code">Code</label>' +
+  '<input id="code" class="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" maxlength="12" placeholder="code" required autofocus>' +
+  '<button class="btn" type="submit">Sign in</button>' +
+  '<button class="quiet" type="submit" name="again" value="1" formnovalidate>Send a new code</button></form>' +
+  '<p class="alt"><a href="">Use a different email</a></p>';
 
 
 // --- The handler, built from its dependencies so tests can supply fakes ---
@@ -153,8 +176,9 @@ function card(href, setCookie) {
  * config: { authDomain, clientId, issuer, publicUrl, group, linkParam, sessionParam }
  * keys(): resolves { link, session } (the two SSM SecureStrings)
  * post(url, form): resolves the token endpoint's JSON
+ * idp(action, body): resolves the Cognito user pool API's JSON; rejects with its error name
  */
-export function makeHandler({ config, keys, post, now = () => Date.now() }) {
+export function makeHandler({ config, keys, post, idp, now = () => Date.now() }) {
   const callback = `${config.publicUrl}/__auth`;
 
   // A device with a current cookie
@@ -163,10 +187,23 @@ export function makeHandler({ config, keys, post, now = () => Date.now() }) {
     return Number(exp) > Math.floor(now() / 1000) && k.session.length >= 32 && same(mac || "", hmac(k.session, `${GATE}|${exp}`));
   }
 
-  // Step 1: with the link key, the card whose button starts a Cognito sign-in bound to this browser
-  async function start(params, jar, k) {
-    if (k.link.length < 32 || k.session.length < 32 || !same(params.get("k") || "", k.link)) return closed();
-    if (signedIn(jar, k)) return redirect("/", []);
+  // A Cognito ID token for this client and pool, current, and in the group
+  function member(c, t) {
+    return c.iss === config.issuer && c.aud === config.clientId && c.token_use === "id" &&
+      Number(c.exp) > t && Array.isArray(c["cognito:groups"]) && c["cognito:groups"].includes(config.group);
+  }
+
+  // The 30-day cookie, clearing the sign-in's own
+  function admit(k, t, status = "302") {
+    const until = t + THIRTY_DAYS;
+    return redirect("/", [
+      `${GATE}=${until}.${hmac(k.session, `${GATE}|${until}`)}; Max-Age=${THIRTY_DAYS}; Path=/; HttpOnly; Secure; SameSite=Lax`,
+      `${START}=; Max-Age=0; Path=/__auth; HttpOnly; Secure; SameSite=Lax`,
+    ], status);
+  }
+
+  // A new Cognito passkey sign-in bound to this browser: its address and the cookie that finishes it
+  function passkeyStart(k) {
     const state = b64url(crypto.randomBytes(16));
     const verifier = b64url(crypto.randomBytes(32));
     const exp = Math.floor(now() / 1000) + ONE_HOUR;
@@ -182,8 +219,76 @@ export function makeHandler({ config, keys, post, now = () => Date.now() }) {
       code_challenge: b64url(crypto.createHash("sha256").update(verifier).digest()),
       code_challenge_method: "S256",
     });
-    return card(`https://${config.authDomain}/oauth2/authorize?${q}`, cookie);
+    return { href: `https://${config.authDomain}/oauth2/authorize?${q}`, cookie };
   }
+
+  function first(k, problem, email) {
+    const p = passkeyStart(k);
+    return card(emailStep(p.href, problem, email), p.cookie);
+  }
+
+  const BUSY = ["LimitExceededException", "TooManyRequestsException", "TooManyFailedAttemptsException"];
+  const trouble = (e) => (BUSY.includes(e?.name) ? "Too many tries. Wait a few minutes." : "Sign-in didn't go through. Try again.");
+
+  // Asks Cognito to mail a code. An account with other ways in is asked to pick the emailed one
+  async function send(k, email) {
+    try {
+      let r = await idp("InitiateAuth", {
+        ClientId: config.clientId,
+        AuthFlow: "USER_AUTH",
+        AuthParameters: { USERNAME: email, PREFERRED_CHALLENGE: "EMAIL_OTP" },
+      });
+      if (r.ChallengeName === "SELECT_CHALLENGE") {
+        r = await idp("RespondToAuthChallenge", {
+          ClientId: config.clientId,
+          ChallengeName: "SELECT_CHALLENGE",
+          Session: r.Session,
+          ChallengeResponses: { USERNAME: email, ANSWER: "EMAIL_OTP" },
+        });
+      }
+      if (r.ChallengeName !== "EMAIL_OTP" || !r.Session) return first(k, trouble(), email);
+      return card(codeStep(email, r.Session));
+    } catch (e) {
+      return first(k, trouble(e), email);
+    }
+  }
+
+  // Checks the typed code; a member gets the cookie, anyone else the 404
+  async function check(k, email, session, code) {
+    let r;
+    try {
+      r = await idp("RespondToAuthChallenge", {
+        ClientId: config.clientId,
+        ChallengeName: "EMAIL_OTP",
+        Session: session,
+        ChallengeResponses: { USERNAME: email, EMAIL_OTP_CODE: code },
+      });
+    } catch (e) {
+      if (e?.name === "CodeMismatchException") return card(codeStep(email, session, "That code didn't match. Check it and try again."));
+      if (BUSY.includes(e?.name)) return first(k, trouble(e), email);
+      return first(k, "That code has expired. Continue to get a new one.", email);
+    }
+    let c;
+    try { c = claims(r.AuthenticationResult.IdToken); } catch { return closed(); }
+    const t = Math.floor(now() / 1000);
+    // The token came straight from Cognito over TLS, like the passkey path's. 303: home with a GET
+    return member(c, t) ? admit(k, t, "303") : closed();
+  }
+
+  // Step 1: only with the link key, on every request, so no other site can post here
+  async function start(request, params, jar, k) {
+    if (k.link.length < 32 || k.session.length < 32 || !same(params.get("k") || "", k.link)) return closed();
+    if (request.method !== "POST") return signedIn(jar, k) ? redirect("/", []) : first(k);
+    const body = request.body || {};
+    if (body.inputTruncated) return closed();
+    const form = new URLSearchParams(Buffer.from(body.data || "", body.encoding === "text" ? "utf8" : "base64").toString("utf8"));
+    const email = (form.get("username") || "").trim().slice(0, 128);
+    if (!email) return first(k);
+    const session = form.get("session") || "";
+    if (!session || form.get("again")) return send(k, email);
+    return check(k, email, session, (form.get("code") || "").replace(/\s/g, ""));
+  }
+
 
   // Step 2: Cognito's answer. Only the browser that used the link, and only a dev-access member
   async function finish(params, jar, k) {
@@ -213,15 +318,8 @@ export function makeHandler({ config, keys, post, now = () => Date.now() }) {
 
     let c;
     try { c = claims(tokens.id_token); } catch { return closed(); }
-    const ok = c.iss === config.issuer && c.aud === config.clientId && c.token_use === "id" && c.nonce === state &&
-      Number(c.exp) > t && Array.isArray(c["cognito:groups"]) && c["cognito:groups"].includes(config.group);
-    if (!ok) return closed();
-
-    const until = t + THIRTY_DAYS;
-    return redirect("/", [
-      `${GATE}=${until}.${hmac(k.session, `${GATE}|${until}`)}; Max-Age=${THIRTY_DAYS}; Path=/; HttpOnly; Secure; SameSite=Lax`,
-      `${START}=; Max-Age=0; Path=/__auth; HttpOnly; Secure; SameSite=Lax`,
-    ]);
+    if (!member(c, t) || c.nonce !== state) return closed();
+    return admit(k, t);
   }
 
   return async function handler(event) {
@@ -229,7 +327,7 @@ export function makeHandler({ config, keys, post, now = () => Date.now() }) {
     const params = new URLSearchParams(request.querystring || "");
     let k;
     try { k = await keys(); } catch { return closed(); }
-    if (request.uri === "/__signin") return start(params, cookies(request), k);
+    if (request.uri === "/__signin") return start(request, params, cookies(request), k);
     if (request.uri === "/__auth") return finish(params, cookies(request), k);
     return closed();
   };
@@ -266,10 +364,23 @@ async function postForm(url, form) {
   return r.json();
 }
 
+/** One unsigned Cognito user pool API call (the ones a public app client makes), within the five seconds */
+async function cognito(action, body) {
+  const r = await fetch("https://cognito-idp.us-east-1.amazonaws.com/", {
+    method: "POST",
+    headers: { "content-type": "application/x-amz-json-1.1", "x-amz-target": `AWSCognitoIdentityProviderService.${action}` },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(3500),
+  });
+  const out = await r.json();
+  if (!r.ok) throw Object.assign(new Error(`cognito ${r.status}`), { name: String(out.__type || "").split("#").pop() });
+  return out;
+}
+
 export async function handler(event) {
   if (!live) {
     config = JSON.parse(readFileSync(new URL("./config.json", import.meta.url), "utf8"));
-    live = makeHandler({ config, keys: ssmKeys, post: postForm });
+    live = makeHandler({ config, keys: ssmKeys, post: postForm, idp: cognito });
   }
   return live(event);
 }

@@ -1,7 +1,7 @@
 # site-dev/sign-in.tf - Who may sign in to dev.neon1.tech, and the edge function that checks it.
-# /__signin?k=<link key> shows the sign-in card; its button starts a sign-in at the 1NEON dev pool
-# (auth-dev.neon1.tech), a passkey or email code finishes it, and only members of its dev-access
-# group get the cookie. Both keys are SSM SecureStrings set by hand (neon1-site make dev-relink /
+# /__signin?k=<link key> asks for an email and then the emailed code, checked by the 1NEON dev
+# pool; a passkey signs in on the pool's own page (auth-dev.neon1.tech). Only members of its
+# dev-access group get the cookie. Both keys are SSM SecureStrings set by hand (neon1-site make dev-relink /
 # dev-signout), never here.
 
 

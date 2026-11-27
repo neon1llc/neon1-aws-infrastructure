@@ -43,6 +43,20 @@ body { margin: 0; background: var(--bg); color: var(--text); font: var(--fs-md)/
 :root:not([data-style="sentinel"])[data-theme="matrix"] .btn { box-shadow: 0 0 18px rgb(108 255 168 / .3); }
 @media (pointer: coarse) { .btn { min-height: 44px; } }
 .next-hint { margin: 12px 0 0; font-size: var(--fs-xs); color: var(--muted); }
+button.btn { cursor: pointer; }
+/* The forms, as on 1NEON's sign-in; 16px fields, so iPhone doesn't zoom in on a tap */
+.stack { display: flex; flex-direction: column; gap: var(--sp-3); }
+.field-label { font-size: var(--fs-xs); color: var(--muted); margin-bottom: calc(-1 * var(--sp-1)); }
+.stack input:not([type="hidden"]):not(.account) { width: 100%; min-height: 44px; padding: var(--sp-2) var(--sp-3); font: max(16px, var(--fs-md)) var(--sans); text-align: center; color: var(--text); background: var(--bg); border: 1px solid var(--line-strong); border-radius: 10px; }
+:root:not([data-style="sentinel"])[data-theme="matrix"] .stack input:not(.account) { background: rgb(255 255 255 / .04); border-color: rgb(237 241 237 / .45); }
+.stack input.code { font: 600 var(--fs-lg) var(--mono); letter-spacing: .3em; }
+/* Off screen but still rendered: password managers skip display:none */
+.account, .sr { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); opacity: 0; pointer-events: none; }
+.notice { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); color: var(--text); }
+.alt { margin: var(--sp-4) 0 0; font-size: var(--fs-sm); }
+.alt a, .quiet { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.quiet { align-self: center; min-height: 32px; padding: 0 var(--sp-2); font: var(--fs-sm) var(--sans); background: none; border: 0; cursor: pointer; }
+@media (pointer: coarse) { .quiet { min-height: 44px; } .alt a { display: inline-block; padding: var(--sp-3) var(--sp-2); } }
 /* The legal strip is /shared/neon1.css's; these are its colors and lines as on 1NEON's public pages */
 .pub-foot { position: relative; z-index: 2; align-self: end; justify-self: stretch; margin-top: var(--sp-7); text-align: left; --glow: var(--accent); }
 :root:not([data-style="sentinel"])[data-theme="matrix"] .pub-foot { --glow: var(--neon); --line: rgb(0 255 65 / .16); }

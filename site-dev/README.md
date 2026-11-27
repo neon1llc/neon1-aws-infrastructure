@@ -6,7 +6,7 @@ A private copy of neon1.tech for checking changes before they ship. It has its o
 
 Every behavior runs one CloudFront Function, `site/functions/dev-router.js`. `make dev-router` builds it from the live `site-router.js` and `portal-router.js` with `dev-gate.js` in front, so dev routes exactly like production. Without a valid `n1dev` cookie, every address shows neon1.tech's not-found page with a 404, and every response is `noindex`. Only the public files that page loads pass without a cookie. A 404 rather than a 403 keeps a private host from saying it holds anything ([RFC 9110, 15.5.4](https://www.rfc-editor.org/rfc/rfc9110#section-15.5.4)).
 
-To sign in, save the private link `https://dev.neon1.tech/__signin?k=<link key>` once. `make dev-link` in neon1-site copies it to the clipboard. It shows a sign-in card; its button opens the dev sign-in on `auth-dev.neon1.tech` (a passkey or email code). Only members of the pool's `dev-access` group get the 30-day cookie. Without the key, `/__signin` is the not-found page like any other address.
+To sign in, save the private link `https://dev.neon1.tech/__signin?k=<link key>` once. `make dev-link` in neon1-site copies it to the clipboard. It asks for your email, then the code Cognito mails you, both on neon1's own forms so password managers can fill them. **Use a passkey** opens `auth-dev.neon1.tech`, where passkeys are registered. Only members of the pool's `dev-access` group get the 30-day cookie. Without the key, `/__signin` is the not-found page like any other address.
 
 The link doesn't change unless someone runs `make dev-relink CONFIRM=yes`, which is only for a leaked link.
 

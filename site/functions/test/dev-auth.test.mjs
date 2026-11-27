@@ -22,11 +22,22 @@ const config = {
 
 let answer;        // (form) => token endpoint JSON, or throws
 let posted = [];
+let pool;          // (action, body) => Cognito API JSON, or throws
+let called = [];
 const handler = makeHandler({
   config,
   keys: async () => keys,
   post: async (url, form) => { posted.push({ url, form }); return answer(form); },
+  idp: async (action, body) => { called.push({ action, body }); return pool(action, body); },
 });
+
+/** A form post to /__signin, as CloudFront hands it over */
+function submit(fields, querystring = `k=${keys.link}`) {
+  const e = event("/__signin", querystring);
+  Object.assign(e.Records[0].cf.request, { method: "POST", body: { encoding: "base64", data: Buffer.from(String(new URLSearchParams(fields))).toString("base64"), inputTruncated: false } });
+  return handler(e);
+}
+const refuse = (name) => () => { throw Object.assign(new Error(name), { name }); };
 
 /** A viewer request for a path, query string, and cookie header */
 function event(uri, querystring = "", cookie = "") {
@@ -46,7 +57,7 @@ function idToken(state, extra = {}) {
 async function begin() {
   const r = await handler(event("/__signin", `k=${keys.link}`));
   assert.equal(r.status, "200");
-  const loc = new URL(/<a class="btn" href="([^"]+)">Sign in/.exec(r.body)[1].replace(/&amp;/g, "&"));
+  const loc = new URL(/<a href="([^"]+)">Use a passkey/.exec(r.body)[1].replace(/&amp;/g, "&"));
   const cookie = r.headers["set-cookie"][0].value.split(";")[0];
   return { r, loc, state: loc.searchParams.get("state"), cookie };
 }
@@ -101,7 +112,71 @@ test("a signed-in device that opens /__signin goes straight home", async () => {
 });
 
 
-// --- Step 2: back from Cognito ---
+// --- The emailed code, on neon1's own forms ---
+
+
+test("a post without the link key gets the 404 and never reaches Cognito", async () => {
+  called = [];
+  for (const qs of ["", "k=nope"]) assert.equal((await submit({ username: "a@neon1.example" }, qs)).status, "404");
+  assert.equal(called.length, 0);
+});
+
+test("the email sends a code; the code step is marked up for password managers", async () => {
+  called = [];
+  pool = () => ({ ChallengeName: "EMAIL_OTP", Session: "sess-1" });
+  const r = await submit({ username: " a@neon1.example " });
+  assert.equal(r.status, "200");
+  assert.deepEqual(called[0].body.AuthParameters, { USERNAME: "a@neon1.example", PREFERRED_CHALLENGE: "EMAIL_OTP" });
+  for (const part of ['name="username" autocomplete="username" value="a@neon1.example"', 'name="session" value="sess-1"', 'name="code" type="text" inputmode="numeric" autocomplete="one-time-code"']) assert.ok(r.body.includes(part), part);
+  assert.ok(!r.body.includes(keys.link));
+  assert.ok(Buffer.byteLength(r.body) < 40_000);
+});
+
+test("an account offered a choice is asked for the emailed code", async () => {
+  called = [];
+  pool = (action) => (action === "InitiateAuth" ? { ChallengeName: "SELECT_CHALLENGE", Session: "pick" } : { ChallengeName: "EMAIL_OTP", Session: "sess-2" });
+  assert.match((await submit({ username: "a@neon1.example" })).body, /value="sess-2"/);
+  assert.equal(called[1].body.ChallengeResponses.ANSWER, "EMAIL_OTP");
+});
+
+test("a member's right code gets the cookie and goes home", async () => {
+  pool = () => ({ AuthenticationResult: { IdToken: idToken(undefined) } });
+  called = [];
+  const r = await submit({ username: "a@neon1.example", session: "sess-1", code: "1234 5678" });
+  assert.equal(r.status, "303");
+  assert.equal(r.headers.location[0].value, "/");
+  assert.match(set(r)[0], /^n1dev=\d+\.[0-9a-f]{64}; Max-Age=2592000; Path=\/; HttpOnly; Secure/);
+  assert.equal(called[0].body.ChallengeResponses.EMAIL_OTP_CODE, "12345678");
+});
+
+test("a right code from outside the group, or a token for elsewhere, gets the 404", async () => {
+  for (const extra of [{ "cognito:groups": ["other"] }, { aud: "other" }, { iss: "https://evil" }, { token_use: "access" }, { exp: 1 }]) {
+    pool = () => ({ AuthenticationResult: { IdToken: idToken(undefined, extra) } });
+    const r = await submit({ username: "a@neon1.example", session: "s", code: "1" });
+    assert.equal(r.status, "404", JSON.stringify(extra));
+  }
+});
+
+test("a wrong code asks again; an expired one or a limit goes back to the email", async () => {
+  const typed = { username: "a@neon1.example", session: "sess-1", code: "00000000" };
+  pool = refuse("CodeMismatchException");
+  assert.match((await submit(typed)).body, /didn&#39;t match[\s\S]*value="sess-1"/);
+  pool = refuse("NotAuthorizedException");
+  assert.match((await submit(typed)).body, /code has expired[\s\S]*name="signin"/);
+  pool = refuse("LimitExceededException");
+  assert.match((await submit(typed)).body, /Too many tries[\s\S]*name="signin"/);
+});
+
+test("send a new code starts over for the same email, and typed text is escaped", async () => {
+  called = [];
+  pool = () => ({ ChallengeName: "EMAIL_OTP", Session: "sess-3" });
+  const r = await submit({ username: '"><script>x</script>', session: "old", again: "1" });
+  assert.equal(called[0].action, "InitiateAuth");
+  assert.ok(!r.body.includes("<script>x"));
+});
+
+
+// --- A passkey: back from Cognito ---
 
 
 test("a dev-access member gets the 30-day cookie dev-gate.js accepts", async () => {
