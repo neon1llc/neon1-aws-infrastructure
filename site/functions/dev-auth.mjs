@@ -6,7 +6,9 @@
 //      home. Without the key it's a 404.
 //   2. A passkey still signs in on Cognito's page, which returns to /__auth with a code; passkeys
 //      are tied to that address.
-//   Either way, a person in the dev-access group gets the 30-day n1dev cookie that dev-gate.js
+//   3. The email's link is /__auth#code=<code>. It finishes the sign-in in the browser that asked
+//      for the code, which holds the email and Cognito's session in a short-lived signed cookie.
+//   Any way in, a person in the dev-access group gets the 30-day n1dev cookie that dev-gate.js
 //   checks on every other request.
 // Every failure is the same not-found page dev-gate.js gives.
 // Lambda@Edge has no environment variables: config.json beside this file is written by Terraform.
@@ -18,6 +20,9 @@ import { readFileSync } from "node:fs";
 // Cookie names and lifetimes; n1dev's format must match dev-gate.js's sign()
 const GATE = "n1dev";
 const START = "n1auth";
+const PENDING = "n1code";
+// Longer than Cognito keeps its session (3 minutes), which is what really ends the code
+const FIVE_MINUTES = 300;
 const THIRTY_DAYS = 2592000;
 const ONE_HOUR = 3600;
 // How long fetched keys are reused, so a new link or a sign-out-all takes effect within a minute
@@ -148,6 +153,13 @@ function card(panel, setCookie) {
 
 const notice = (text) => (text ? `<p class="notice" role="alert">${esc(text)}</p>` : "");
 
+// Where the email's link lands: signin.js moves the code from the address into this form and sends it
+const linkStep = () => '<p class="signin-lead">Signing you in.</p>' +
+  '<form class="stack" name="link" method="post"><input type="hidden" name="code"><button class="btn" type="submit">Sign in</button></form>';
+
+const linkOver = (problem) => notice(problem) + '<p class="next-hint">Open your dev sign-in link to get a new code.</p>';
+
+
 // The forms name no action, so they post back to the private address they came from.
 // Step one: the email. The passkey link goes to Cognito's page
 const emailStep = (passkey, problem = "", email = "") => '<p class="signin-lead">Sign in with your dev account.</p>' + notice(problem) +
@@ -193,12 +205,26 @@ export function makeHandler({ config, keys, post, idp, now = () => Date.now() })
       Number(c.exp) > t && Array.isArray(c["cognito:groups"]) && c["cognito:groups"].includes(config.group);
   }
 
+  // The sign-in waiting on a code, so the email's link can finish it in this browser
+  function pending(k, email, session) {
+    const value = `${b64url(JSON.stringify([email, session]))}.${Math.floor(now() / 1000) + FIVE_MINUTES}`;
+    return `${PENDING}=${value}.${hmac(k.session, `${PENDING}|${value}`)}; Max-Age=${FIVE_MINUTES}; Path=/__auth; HttpOnly; Secure; SameSite=Lax`;
+  }
+
+  function held(jar, k) {
+    const [data, exp, mac] = (jar[PENDING] || "").split(".");
+    if (!mac || k.session.length < 32 || !same(mac, hmac(k.session, `${PENDING}|${data}.${exp}`)) || Number(exp) <= Math.floor(now() / 1000)) return null;
+    const [email, session] = JSON.parse(Buffer.from(data, "base64url").toString("utf8"));
+    return { email, session };
+  }
+
   // The 30-day cookie, clearing the sign-in's own
   function admit(k, t, status = "302") {
     const until = t + THIRTY_DAYS;
     return redirect("/", [
       `${GATE}=${until}.${hmac(k.session, `${GATE}|${until}`)}; Max-Age=${THIRTY_DAYS}; Path=/; HttpOnly; Secure; SameSite=Lax`,
       `${START}=; Max-Age=0; Path=/__auth; HttpOnly; Secure; SameSite=Lax`,
+      `${PENDING}=; Max-Age=0; Path=/__auth; HttpOnly; Secure; SameSite=Lax`,
     ], status);
   }
 
@@ -247,14 +273,15 @@ export function makeHandler({ config, keys, post, idp, now = () => Date.now() })
         });
       }
       if (r.ChallengeName !== "EMAIL_OTP" || !r.Session) return first(k, trouble(), email);
-      return card(codeStep(email, r.Session));
+      return card(codeStep(email, r.Session), pending(k, email, r.Session));
     } catch (e) {
       return first(k, trouble(e), email);
     }
   }
 
   // Checks the typed code; a member gets the cookie, anyone else the 404
-  async function check(k, email, session, code) {
+  // retry(e) answers a refused code
+  async function check(k, email, session, code, retry) {
     let r;
     try {
       r = await idp("RespondToAuthChallenge", {
@@ -264,9 +291,7 @@ export function makeHandler({ config, keys, post, idp, now = () => Date.now() })
         ChallengeResponses: { USERNAME: email, EMAIL_OTP_CODE: code },
       });
     } catch (e) {
-      if (e?.name === "CodeMismatchException") return card(codeStep(email, session, "That code didn't match. Check it and try again."));
-      if (BUSY.includes(e?.name)) return first(k, trouble(e), email);
-      return first(k, "That code has expired. Continue to get a new one.", email);
+      return retry(e);
     }
     let c;
     try { c = claims(r.AuthenticationResult.IdToken); } catch { return closed(); }
@@ -275,18 +300,39 @@ export function makeHandler({ config, keys, post, idp, now = () => Date.now() })
     return member(c, t) ? admit(k, t, "303") : closed();
   }
 
+  /** The posted form, or null for one too long to have come from these pages */
+  function posted(request) {
+    const body = request.body || {};
+    if (body.inputTruncated) return null;
+    return new URLSearchParams(Buffer.from(body.data || "", body.encoding === "text" ? "utf8" : "base64").toString("utf8"));
+  }
+
+  const digits = (text) => String(text || "").replace(/\s/g, "");
+
+  // The email's link: only the browser holding the signed cookie, which the key-gated form set
+  async function fromLink(request, jar, k) {
+    if (signedIn(jar, k)) return redirect("/", []);
+    const h = held(jar, k);
+    if (!h) return closed();
+    if (request.method !== "POST") return card(linkStep());
+    const code = digits(posted(request)?.get("code"));
+    return check(k, h.email, h.session, code, (e) => card(linkOver(BUSY.includes(e?.name) ? trouble(e) : "That link has expired or was already used.")));
+  }
+
   // Step 1: only with the link key, on every request, so no other site can post here
   async function start(request, params, jar, k) {
     if (k.link.length < 32 || k.session.length < 32 || !same(params.get("k") || "", k.link)) return closed();
     if (request.method !== "POST") return signedIn(jar, k) ? redirect("/", []) : first(k);
-    const body = request.body || {};
-    if (body.inputTruncated) return closed();
-    const form = new URLSearchParams(Buffer.from(body.data || "", body.encoding === "text" ? "utf8" : "base64").toString("utf8"));
+    const form = posted(request);
+    if (!form) return closed();
     const email = (form.get("username") || "").trim().slice(0, 128);
     if (!email) return first(k);
     const session = form.get("session") || "";
     if (!session || form.get("again")) return send(k, email);
-    return check(k, email, session, (form.get("code") || "").replace(/\s/g, ""));
+    return check(k, email, session, digits(form.get("code")), (e) => {
+      if (e?.name === "CodeMismatchException") return card(codeStep(email, session, "That code didn't match. Check it and try again."), pending(k, email, session));
+      return first(k, BUSY.includes(e?.name) ? trouble(e) : "That code has expired. Continue to get a new one.", email);
+    });
   }
 
 
@@ -294,8 +340,6 @@ export function makeHandler({ config, keys, post, idp, now = () => Date.now() })
   async function finish(params, jar, k) {
     const t = Math.floor(now() / 1000);
 
-    // Back from adding a passkey (no code): a signed-in device just goes home
-    if (!params.get("code")) return signedIn(jar, k) ? redirect("/", []) : closed();
 
     const parts = (jar[START] || "").split(".");
     if (parts.length !== 4 || k.session.length < 32) return closed();
@@ -328,7 +372,9 @@ export function makeHandler({ config, keys, post, idp, now = () => Date.now() })
     let k;
     try { k = await keys(); } catch { return closed(); }
     if (request.uri === "/__signin") return start(request, params, cookies(request), k);
-    if (request.uri === "/__auth") return finish(params, cookies(request), k);
+    // With Cognito's code this is the passkey path; without one it's the email's link, or the way
+    // back from adding a passkey, where a signed-in device just goes home
+    if (request.uri === "/__auth") return params.get("code") ? finish(params, cookies(request), k) : fromLink(request, cookies(request), k);
     return closed();
   };
 }

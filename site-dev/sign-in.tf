@@ -77,6 +77,15 @@ resource "aws_cognito_managed_login_branding" "dev_gate" {
 }
 
 
+# 1NEON's dev sign-in email reads this, so a code asked for by the gate links back to the gate
+# (neon1-1NEON infra/envs/dev)
+resource "aws_ssm_parameter" "gate_client_id" {
+  name  = "/neon1-site/dev/gate_client_id"
+  type  = "String"
+  value = aws_cognito_user_pool_client.dev_gate.id
+}
+
+
 # --- The sign-in function: Lambda@Edge on /__signin and /__auth only ---
 
 

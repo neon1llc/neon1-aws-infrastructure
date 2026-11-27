@@ -26,8 +26,19 @@ function pick(style, night) {
   held = family() === style && dark() === night ? null : { style, dark: night };
   paint();
 }
+// The email's link carries the code after "#", which browsers never send to a server. Take it out of
+// the address and post it
+function useLink() {
+  const form = document.forms.namedItem("link");
+  const found = /^#code=(\d{6,8})$/.exec(location.hash);
+  if (!form || !found) return;
+  history.replaceState(null, "", location.pathname);
+  form.elements.namedItem("code").value = found[1];
+  form.requestSubmit();
+}
 paint();
 addEventListener("DOMContentLoaded", () => {
+  useLink();
   const now = () => ({ style: held?.style ?? family(), dark: held?.dark ?? dark() });
   document.querySelector(".theme-sw").addEventListener("click", () => pick(now().style, !now().dark));
   document.querySelectorAll("[data-look]").forEach((b) => b.addEventListener("click", () => pick(b.dataset.look, now().dark)));

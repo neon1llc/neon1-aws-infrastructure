@@ -176,6 +176,50 @@ test("send a new code starts over for the same email, and typed text is escaped"
 });
 
 
+// --- The email's link ---
+
+
+/** Ask for a code, and give back the cookie that lets the email's link finish */
+async function asked() {
+  pool = () => ({ ChallengeName: "EMAIL_OTP", Session: "sess-link" });
+  const r = await submit({ username: "a@neon1.example" });
+  assert.match(set(r)[0], /^n1code=[^;]+; Max-Age=300; Path=\/__auth; HttpOnly; Secure; SameSite=Lax$/);
+  return set(r)[0].split(";")[0];
+}
+
+/** A post to /__auth from the link's page */
+function follow(code, cookie) {
+  const e = event("/__auth", "", cookie);
+  Object.assign(e.Records[0].cf.request, { method: "POST", body: { encoding: "base64", data: Buffer.from(`code=${code}`).toString("base64") } });
+  return handler(e);
+}
+
+test("the email's link signs in the browser that asked for the code", async () => {
+  const cookie = await asked();
+  const page = await handler(event("/__auth", "", cookie));
+  assert.match(page.body, /<form class="stack" name="link" method="post"><input type="hidden" name="code">/);
+  pool = () => ({ AuthenticationResult: { IdToken: idToken(undefined) } });
+  called = [];
+  const r = await follow("12345678", cookie);
+  assert.equal(r.status, "303");
+  assert.deepEqual(called[0].body.ChallengeResponses, { USERNAME: "a@neon1.example", EMAIL_OTP_CODE: "12345678" });
+  assert.equal(called[0].body.Session, "sess-link");
+  assert.ok(set(r).some((c) => c.startsWith("n1code=; Max-Age=0")));
+});
+
+test("the link gets the 404 in a browser that didn't ask, and a used one says so", async () => {
+  const cookie = await asked();
+  called = [];
+  for (const jar of ["", `${cookie}x`, "n1code=a.9999999999.b"]) {
+    assert.equal((await handler(event("/__auth", "", jar))).status, "404");
+    assert.equal((await follow("12345678", jar)).status, "404");
+  }
+  assert.equal(called.length, 0);
+  pool = refuse("NotAuthorizedException");
+  assert.match((await follow("12345678", cookie)).body, /link has expired or was already used/);
+});
+
+
 // --- A passkey: back from Cognito ---
 
 
