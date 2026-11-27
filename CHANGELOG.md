@@ -4,7 +4,7 @@ neon1-aws-infrastructure releases use `v0.MINOR.PATCH` until the first complete 
 
 ## Unreleased
 
-- `github/`: 1NEON's permission ceiling also allows reading neon1-notify's reply secret, so the portal can sign the Reply-To on project messages. Applied.
+- `github/`: 1NEON dev's permission ceiling also allows reading neon1-notify's dev reply secret, so the portal can sign the Reply-To on project messages. Production's ceiling is unchanged until project replies ship there. Applied.
 - CI plans all six stacks on pull requests, manual runs, and a daily schedule, and its summary lists only resource addresses and actions. Main still applies only `site/` and `dns/`, and only when their plan has changes.
 - `github/`: a read-only plan role, `github-neon1-infra-plan`, for branches and pull requests. It reads every stack and takes their lock files, and changes nothing. Applied.
 - `site-dev/`: the dev sign-in asks for the email and code on neon1's own pages, so password managers can fill them, and draws them like 1NEON's. The emailed link finishes sign-in in the browser that asked. Passkeys stay on Cognito's pages. Applied to dev.
